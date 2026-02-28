@@ -5,15 +5,20 @@ from fastapi import FastAPI
 from amazon_transcribe.client import TranscribeStreamingClient
 from amazon_transcribe.handlers import TranscriptResultStreamHandler
 from amazon_transcribe.model import TranscriptEvent
-from awscrt.auth import AwsCredentialsProvider
-from amazon_transcribe.auth import AwsCrtCredentialResolver
 from dotenv import load_dotenv
 import os
 import datetime
 load_dotenv()
+
 AWS_ACCESS_KEY = os.getenv("AWS_ACCESS_KEY")
 AWS_SECRET_KEY = os.getenv("AWS_SECRET_KEY")
 AWS_REGION = "us-east-1"
+
+# CRT ke liye correct env var names
+os.environ["AWS_ACCESS_KEY_ID"] = AWS_ACCESS_KEY
+os.environ["AWS_SECRET_ACCESS_KEY"] = AWS_SECRET_KEY
+os.environ["AWS_DEFAULT_REGION"] = AWS_REGION
+
 sio = socketio.AsyncServer(
     async_mode="asgi",
     cors_allowed_origins="*"
@@ -22,6 +27,7 @@ sio = socketio.AsyncServer(
 app = FastAPI()
 socket_app = socketio.ASGIApp(sio, other_asgi_app=app)
 active_streams = {}
+
 
 class MyEventHandler(TranscriptResultStreamHandler):
     def __init__(self, output_stream, sid):
@@ -41,8 +47,10 @@ class MyEventHandler(TranscriptResultStreamHandler):
                         "text": transcript,
                         "timestamp": datetime.datetime.now().isoformat()
                     }, room=self.sid)
-                except:
+                except Exception:
                     print("Client already disconnected.")
+
+
 @sio.event
 async def connect(sid, environ, auth=None):
     print(f"Client connected: {sid}")
@@ -70,32 +78,36 @@ async def connect(sid, environ, auth=None):
         traceback.print_exc()
         return False
 
+
 @sio.event
 async def audio_chunk(sid, data):
     try:
         if sid in active_streams:
             stream = active_streams[sid]["stream"]
-            await stream.input_stream.send_audio_event(data)
+            await stream.input_stream.send_audio_event(audio_chunk=data)
     except Exception as e:
         print("Audio error:", e)
+
 
 @sio.event
 async def disconnect(sid):
     print(f"Client disconnected: {sid}")
 
     if sid in active_streams:
-        stream = active_streams[sid]["stream"]
+        # Pehle dict se hatao taaki audio_chunk race na kare
+        stream_data = active_streams.pop(sid)
+        stream = stream_data["stream"]
 
         try:
             await stream.input_stream.end_stream()
-        except:
+        except Exception:
             pass
 
+        task = stream_data["handler_task"]
+        task.cancel()
         try:
-            active_streams[sid]["handler_task"].cancel()
-        except:
+            await asyncio.wait_for(asyncio.shield(task), timeout=1.0)
+        except (asyncio.CancelledError, asyncio.TimeoutError, Exception):
             pass
-
-        del active_streams[sid]
 
         print("AWS stream closed safely.")
