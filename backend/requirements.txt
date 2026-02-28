@@ -1,0 +1,8 @@
+fastapi
+uvicorn[standard]
+python-socketio[asgi]
+boto3
+amazon-transcribe
+aiohttp
+awscrt
+python-dotenv
