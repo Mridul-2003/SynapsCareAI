@@ -14,7 +14,7 @@ import datetime
 # =============================
 # Load ENV (from backend/.env regardless of CWD)
 # =============================
-
+load_dotenv()
 _BACKEND_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 load_dotenv(os.path.join(_BACKEND_DIR, ".env"))
 
@@ -42,7 +42,7 @@ dynamodb = boto3.resource(
     aws_secret_access_key=AWS_SECRET_KEY,
 )
 
-table = dynamodb.Table(os.environ["DYNAMODB_TABLE"])
+table = dynamodb.Table(os.environ.get("DYNAMODB_TABLE"))
 
 # =============================
 # Socket.IO + FastAPI Setup

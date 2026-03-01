@@ -4,8 +4,6 @@ from services.fetch_data import get_transcript_data
 from services.schema import SoapNotesRequest
 
 router = APIRouter()
-
-
 @router.post("/generate_soap_notes")
 async def generate_soap_notes(req: SoapNotesRequest):
     consultation_id = req.consultation_id
