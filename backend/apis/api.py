@@ -12,18 +12,21 @@ import os
 import datetime
 
 # =============================
-# Load ENV
+# Load ENV (from backend/.env regardless of CWD)
 # =============================
 
-load_dotenv()
+_BACKEND_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+load_dotenv(os.path.join(_BACKEND_DIR, ".env"))
 
-AWS_ACCESS_KEY = os.getenv("AWS_ACCESS_KEY")
-AWS_SECRET_KEY = os.getenv("AWS_SECRET_KEY")
-AWS_REGION = "us-east-1"
-DYNAMO_REGION = "ap-southeast-2"
+AWS_ACCESS_KEY = os.getenv("AWS_ACCESS_KEY") or ""
+AWS_SECRET_KEY = os.getenv("AWS_SECRET_KEY") or ""
+AWS_REGION = (os.getenv("AWS_REGION") or "us-east-1").strip()
+DYNAMO_REGION = (os.getenv("DYNAMO_REGION") or "ap-southeast-2").strip()
 
-os.environ["AWS_ACCESS_KEY_ID"] = AWS_ACCESS_KEY
-os.environ["AWS_SECRET_ACCESS_KEY"] = AWS_SECRET_KEY
+if AWS_ACCESS_KEY:
+    os.environ["AWS_ACCESS_KEY_ID"] = AWS_ACCESS_KEY
+if AWS_SECRET_KEY:
+    os.environ["AWS_SECRET_ACCESS_KEY"] = AWS_SECRET_KEY
 os.environ["AWS_DEFAULT_REGION"] = AWS_REGION
 
 logging.getLogger("amazon_transcribe").setLevel(logging.CRITICAL)
@@ -95,36 +98,14 @@ class MyEventHandler(TranscriptResultStreamHandler):
                 except Exception:
                     print("Client already disconnected")
 
-                # ── Store in DynamoDB ──
+                # ── Store in memory (DynamoDB on recording stop) ──
                 if self.sid in active_streams:
-                    stream_data = active_streams[self.sid]
-                    consultation_id = stream_data["consultation_id"]
-                    created_at = stream_data["created_at"]
-
-                    try:
-                        # Append transcript entry to the list
-                        table.update_item(
-                            Key={
-                                "consultationID": consultation_id,
-                                "createdAt": created_at,
-                            },
-                            UpdateExpression=(
-                                "SET #t = list_append(if_not_exists(#t, :empty), :new_entry)"
-                            ),
-                            ExpressionAttributeNames={"#t": "transcript"},
-                            ExpressionAttributeValues={
-                                ":new_entry": [
-                                    {
-                                        "text": transcript_text,
-                                        "timestamp": timestamp,
-                                        "speaker": "unknown",
-                                    }
-                                ],
-                                ":empty": [],
-                            },
-                        )
-                    except Exception as e:
-                        print("DynamoDB transcript append error:", e)
+                    entry = {
+                        "text": transcript_text,
+                        "timestamp": timestamp,
+                        "speaker": "unknown",
+                    }
+                    active_streams[self.sid].setdefault("transcript", []).append(entry)
 
 
 # =============================
@@ -141,6 +122,34 @@ async def safe_handle_events(handler):
 
 
 # =============================
+# Save consultation to DynamoDB (on stop)
+# =============================
+
+def _save_consultation_to_dynamo(sid):
+    """Generate UUID, created_at, save transcript to DynamoDB. Returns (consultation_id, created_at) or (None, None)."""
+    if sid not in active_streams:
+        return None, None
+    stream_data = active_streams[sid]
+    consultation_id = str(uuid.uuid4())
+    created_at = datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
+    transcript = stream_data.get("transcript", [])
+    try:
+        table.put_item(
+            Item={
+                "consultationID": consultation_id,
+                "createdAt": created_at,
+                "status": "completed",
+                "transcript": transcript,
+            }
+        )
+        print(f"DynamoDB saved: {consultation_id} | {created_at} | {len(transcript)} entries")
+        return consultation_id, created_at
+    except Exception as e:
+        print("DynamoDB save error:", e)
+        return None, None
+
+
+# =============================
 # Socket Events
 # =============================
 
@@ -149,23 +158,15 @@ async def connect(sid, environ, auth=None):
 
     print(f"Client connected: {sid}")
 
-    # Generate consultation ID and timestamp
-    consultation_id = "CONS-" + str(uuid.uuid4())[:8].upper()
-    created_at = datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
+    if not AWS_ACCESS_KEY or not AWS_SECRET_KEY:
+        print("Connection error: AWS_ACCESS_KEY / AWS_SECRET_KEY missing. Check backend/.env")
+        return False
+    if not AWS_REGION:
+        print("Connection error: AWS_REGION missing or invalid")
+        return False
 
     try:
-        # ── Create DynamoDB entry ──
-        table.put_item(
-            Item={
-                "consultationID": consultation_id,
-                "createdAt": created_at,
-                "status": "recording",
-                "transcript": [],
-            }
-        )
-        print(f"DynamoDB entry created: {consultation_id} / {created_at}")
-
-        # ── Start AWS Transcribe stream ──
+        # ── Start AWS Transcribe stream (consultation saved on stop) ──
         client = TranscribeStreamingClient(region=AWS_REGION)
 
         stream = await client.start_stream_transcription(
@@ -181,17 +182,10 @@ async def connect(sid, environ, auth=None):
         active_streams[sid] = {
             "stream": stream,
             "handler_task": handler_task,
-            "consultation_id": consultation_id,
-            "created_at": created_at,
+            "transcript": [],
         }
 
-        # ── Send consultation info to frontend ──
-        await sio.emit(
-            "consultation_started",
-            {"consultation_id": consultation_id, "created_at": created_at},
-            room=sid,
-        )
-
+        await sio.emit("recording_started", {}, room=sid)
         print("AWS stream started")
 
     except Exception as e:
@@ -218,6 +212,44 @@ async def audio_chunk(sid, data):
 
 
 # =============================
+# Stop recording (button) → save to DynamoDB, then cleanup
+# =============================
+
+@sio.event
+async def stop_recording(sid):
+    if sid not in active_streams:
+        return
+    consultation_id, created_at = _save_consultation_to_dynamo(sid)
+    await sio.emit(
+        "consultation_saved",
+        {"consultation_id": consultation_id, "created_at": created_at},
+        room=sid,
+    )
+    await _close_stream_for_sid(sid)
+
+
+async def _close_stream_for_sid(sid):
+    """Cancel handler, end stream, remove from active_streams."""
+    if sid not in active_streams:
+        return
+    stream_data = active_streams.pop(sid)
+    stream = stream_data["stream"]
+    task = stream_data["handler_task"]
+    task.cancel()
+    try:
+        await asyncio.wait_for(task, timeout=2.0)
+    except (asyncio.CancelledError, asyncio.TimeoutError):
+        pass
+    except Exception as e:
+        print("Handler shutdown error:", e)
+    try:
+        await stream.input_stream.end_stream()
+    except Exception:
+        pass
+    print("AWS stream closed safely")
+
+
+# =============================
 # Disconnect handler
 # =============================
 
@@ -229,13 +261,13 @@ async def disconnect(sid):
     if sid not in active_streams:
         return
 
+    # Save consultation to DynamoDB (UUID, created_at, transcript)
+    _save_consultation_to_dynamo(sid)
+
     stream_data = active_streams.pop(sid)
     stream = stream_data["stream"]
     task = stream_data["handler_task"]
-    consultation_id = stream_data["consultation_id"]
-    created_at = stream_data["created_at"]
 
-    # Stop handler
     task.cancel()
     try:
         await asyncio.wait_for(task, timeout=2.0)
@@ -244,22 +276,18 @@ async def disconnect(sid):
     except Exception as e:
         print("Handler shutdown error:", e)
 
-    # Close AWS stream
     try:
         await stream.input_stream.end_stream()
     except Exception:
         pass
 
-    # ── Mark consultation as completed in DynamoDB ──
-    try:
-        table.update_item(
-            Key={"consultationID": consultation_id, "createdAt": created_at},
-            UpdateExpression="SET #s = :done",
-            ExpressionAttributeNames={"#s": "status"},
-            ExpressionAttributeValues={":done": "completed"},
-        )
-        print(f"Consultation {consultation_id} marked as completed")
-    except Exception as e:
-        print("DynamoDB status update error:", e)
-
     print("AWS stream closed safely")
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(
+        "api:socket_app",
+        host="0.0.0.0",
+        port=8000,
+        reload=True
+    )

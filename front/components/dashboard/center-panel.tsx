@@ -33,6 +33,7 @@ export default function CenterPanel({
   const [soapNote, setSoapNote] = useState<SOAPNote | null>(null);
   const [soapLoading, setSoapLoading] = useState(false);
   const [soapError, setSoapError] = useState<string | null>(null);
+  const [summary, setSummary] = useState<string | null>(null);
 
   const consultationIdRef = useRef<string>("");
   const createdAtRef = useRef<string>("");
@@ -69,6 +70,9 @@ export default function CenterPanel({
 
   async function startRecording() {
     try {
+      setSoapNote(null);
+      setSoapError(null);
+      setSummary(null);
       const socket = io("http://localhost:8000", {
         transports: ["websocket"],
       });
@@ -79,13 +83,17 @@ export default function CenterPanel({
         console.log("Socket connected");
       });
 
+      socket.on("recording_started", () => {
+        console.log("Recording started");
+      });
+
       socket.on(
-        "consultation_started",
+        "consultation_saved",
         (data: { consultation_id: string; created_at: string }) => {
-          consultationIdRef.current = data.consultation_id;
-          createdAtRef.current = data.created_at;
+          consultationIdRef.current = data.consultation_id ?? "";
+          createdAtRef.current = data.created_at ?? "";
           console.log(
-            "Consultation started:",
+            "Consultation saved:",
             data.consultation_id,
             data.created_at,
           );
@@ -136,14 +144,29 @@ export default function CenterPanel({
   function stopRecording() {
     processorRef.current?.disconnect();
     audioContextRef.current?.close();
-    socketRef.current?.disconnect();
     if (timerRef.current) clearInterval(timerRef.current);
     setIsRecording(false);
 
-    setTimeout(() => {
-      generateSOAP();
-      onTabChange("soap");
-    }, 1500);
+    const socket = socketRef.current;
+    if (socket?.connected) {
+      socket.emit("stop_recording");
+      socket.once("consultation_saved", () => {
+        socket.disconnect();
+        setTimeout(() => {
+          generateSOAP();
+          onTabChange("soap");
+        }, 500);
+      });
+      // Fallback: agar 3s mein consultation_saved nahi aaya to bhi disconnect
+      setTimeout(() => {
+        if (socket.connected) socket.disconnect();
+      }, 3000);
+    } else {
+      setTimeout(() => {
+        generateSOAP();
+        onTabChange("soap");
+      }, 500);
+    }
   }
 
   function toggleRecording() {
@@ -152,6 +175,14 @@ export default function CenterPanel({
     } else {
       startRecording();
     }
+  }
+
+  function resetForNewConsultation() {
+    setMessages([]);
+    setDuration(0);
+    consultationIdRef.current = "";
+    createdAtRef.current = "";
+    onTabChange("transcript");
   }
 
   async function generateSOAP() {
@@ -166,6 +197,7 @@ export default function CenterPanel({
     setSoapLoading(true);
     setSoapError(null);
     setSoapNote(null);
+    setSummary(null);
 
     console.log("Generating SOAP for:", consultationId, createdAt);
 
@@ -182,16 +214,20 @@ export default function CenterPanel({
         },
       );
 
+      const data = await response.json().catch(() => ({}));
       if (!response.ok) {
-        throw new Error(`Server error: ${response.status}`);
+        throw new Error((data as { detail?: string }).detail || `Server error: ${response.status}`);
       }
-
-      const data = await response.json();
-
-      // API returns { soap: { subjective, objective, assessment, plan }, entities: [], diagnoses: [] }
-      // Extract only the soap object
-      const soapData: SOAPNote = data.soap ?? data;
+      if ((data as { status?: string }).status === "error") {
+        const err = (data as { error?: string }).error || "SOAP generate fail";
+        setSoapError(err);
+        return;
+      }
+      // API returns { soap, summary, entities, diagnoses }
+      const soapData: SOAPNote = data.soap ?? data.soap_notes?.soap ?? data.soap_notes ?? data;
       setSoapNote(soapData);
+      setSummary((data as { summary?: string | null }).summary ?? null);
+      resetForNewConsultation();
     } catch (err: any) {
       setSoapError(err.message || "Failed to generate SOAP note");
     } finally {
@@ -280,33 +316,39 @@ export default function CenterPanel({
 
         {soapNote && (
           <div className="space-y-3">
-            {soapSections.map(({ key, label, icon }) => (
-              <div
-                key={key}
-                className="rounded-xl p-4"
-                style={{
-                  background: "rgba(0,200,150,0.05)",
-                  border: "1px solid rgba(0,200,150,0.15)",
-                }}
-              >
+            {soapSections.map(({ key, label, icon }) => {
+              const value =
+                soapNote[key] ??
+                soapNote[key as keyof SOAPNote] ??
+                soapNote[(key.charAt(0).toUpperCase() + key.slice(1)) as keyof SOAPNote];
+              return (
                 <div
-                  className="text-xs font-bold mb-2 flex items-center gap-1.5"
-                  style={{ color: "#00C896" }}
+                  key={key}
+                  className="rounded-xl p-4"
+                  style={{
+                    background: "rgba(0,200,150,0.05)",
+                    border: "1px solid rgba(0,200,150,0.15)",
+                  }}
                 >
-                  <span>{icon}</span>
-                  <span>{label}</span>
+                  <div
+                    className="text-xs font-bold mb-2 flex items-center gap-1.5"
+                    style={{ color: "#00C896" }}
+                  >
+                    <span>{icon}</span>
+                    <span>{label}</span>
+                  </div>
+                  <div className="text-sm" style={{ color: "#C5DDD5" }}>
+                    {typeof value === "string" ? (
+                      value
+                    ) : value ? (
+                      JSON.stringify(value)
+                    ) : (
+                      <span style={{ color: "#5A7A6E" }}>Not available</span>
+                    )}
+                  </div>
                 </div>
-                <div className="text-sm" style={{ color: "#C5DDD5" }}>
-                  {typeof soapNote[key] === "string" ? (
-                    soapNote[key]
-                  ) : soapNote[key] ? (
-                    JSON.stringify(soapNote[key])
-                  ) : (
-                    <span style={{ color: "#5A7A6E" }}>Not available</span>
-                  )}
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
@@ -385,8 +427,16 @@ export default function CenterPanel({
         {activeTab === "transcript" && renderTranscript()}
         {activeTab === "soap" && renderSOAP()}
         {activeTab === "summary" && (
-          <div style={{ color: "#5A7A6E" }} className="text-sm">
-            Summary coming soon...
+          <div className="space-y-3">
+            {summary ? (
+              <p className="text-sm" style={{ color: "#C5DDD5", lineHeight: 1.6 }}>
+                {summary}
+              </p>
+            ) : (
+              <div style={{ color: "#5A7A6E" }} className="text-sm">
+                Recording stop karo aur SOAP generate karo — summary yahan aayega. Phir transcript clear ho jayega aur nayi recording shuru kar sakte ho.
+              </div>
+            )}
           </div>
         )}
       </div>
