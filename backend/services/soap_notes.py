@@ -8,7 +8,12 @@ AWS_ACCESS_KEY = os.getenv("AWS_ACCESS_KEY")
 AWS_SECRET_KEY = os.getenv("AWS_SECRET_KEY")
 AWS_REGION = "us-east-1"
 
-client = boto3.client(service_name='bedrock-runtime',region_name=AWS_REGION)
+client = boto3.client(
+    service_name='bedrock-runtime',
+    region_name=AWS_REGION,
+    aws_access_key_id=AWS_ACCESS_KEY,
+    aws_secret_access_key=AWS_SECRET_KEY,
+)
 model_id = "qwen.qwen3-32b-v1:0"
 
 # cleaned_transcript = """
