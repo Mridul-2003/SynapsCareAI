@@ -19,7 +19,7 @@ async def generate_soap_notes(req: SoapNotesRequest):
     except Exception as e:
         err_msg = str(e)
         if "getaddrinfo failed" in err_msg or "EndpointConnectionError" in err_msg or "Could not connect" in err_msg:
-            detail = "AWS Bedrock tak connect nahi ho pa raha. Internet/VPN check karo ya firewall allow karo: bedrock-runtime.us-east-1.amazonaws.com"
+            detail = "Unable to connect to AWS Bedrock. Please check your internet/VPN connection or ensure firewall access is allowed for: bedrock-runtime.us-east-1.amazonaws.com"
         else:
             detail = f"SOAP generate fail: {err_msg}"
         # Return 200 with error so frontend can show message (no 503 in UI)

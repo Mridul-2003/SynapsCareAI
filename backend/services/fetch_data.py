@@ -10,8 +10,8 @@ AWS_REGION = "ap-southeast-2"
 dynamodb = boto3.resource(
     'dynamodb',
     region_name=AWS_REGION,
-    aws_access_key_id=AWS_ACCESS_KEY,        # ✅ ye add karo
-    aws_secret_access_key=AWS_SECRET_KEY      # ✅ ye add karo
+    aws_access_key_id=AWS_ACCESS_KEY,     
+    aws_secret_access_key=AWS_SECRET_KEY    
 )
 table = dynamodb.Table(os.environ['DYNAMODB_TABLE'])
 

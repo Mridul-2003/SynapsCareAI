@@ -157,7 +157,6 @@ export default function CenterPanel({
           onTabChange("soap");
         }, 500);
       });
-      // Fallback: agar 3s mein consultation_saved nahi aaya to bhi disconnect
       setTimeout(() => {
         if (socket.connected) socket.disconnect();
       }, 3000);
@@ -190,7 +189,9 @@ export default function CenterPanel({
     const createdAt = createdAtRef.current;
 
     if (!consultationId || !createdAt) {
-      setSoapError("Consultation ID nahi mila. Pehle record karo.");
+      setSoapError(
+        "Consultation ID not found. Please record the consultation first.",
+      );
       return;
     }
 
@@ -216,7 +217,10 @@ export default function CenterPanel({
 
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
-        throw new Error((data as { detail?: string }).detail || `Server error: ${response.status}`);
+        throw new Error(
+          (data as { detail?: string }).detail ||
+            `Server error: ${response.status}`,
+        );
       }
       if ((data as { status?: string }).status === "error") {
         const err = (data as { error?: string }).error || "SOAP generate fail";
@@ -224,7 +228,8 @@ export default function CenterPanel({
         return;
       }
       // API returns { soap, summary, entities, diagnoses }
-      const soapData: SOAPNote = data.soap ?? data.soap_notes?.soap ?? data.soap_notes ?? data;
+      const soapData: SOAPNote =
+        data.soap ?? data.soap_notes?.soap ?? data.soap_notes ?? data;
       setSoapNote(soapData);
       setSummary((data as { summary?: string | null }).summary ?? null);
       resetForNewConsultation();
@@ -320,7 +325,9 @@ export default function CenterPanel({
               const value =
                 soapNote[key] ??
                 soapNote[key as keyof SOAPNote] ??
-                soapNote[(key.charAt(0).toUpperCase() + key.slice(1)) as keyof SOAPNote];
+                soapNote[
+                  (key.charAt(0).toUpperCase() + key.slice(1)) as keyof SOAPNote
+                ];
               return (
                 <div
                   key={key}
@@ -429,12 +436,17 @@ export default function CenterPanel({
         {activeTab === "summary" && (
           <div className="space-y-3">
             {summary ? (
-              <p className="text-sm" style={{ color: "#C5DDD5", lineHeight: 1.6 }}>
+              <p
+                className="text-sm"
+                style={{ color: "#C5DDD5", lineHeight: 1.6 }}
+              >
                 {summary}
               </p>
             ) : (
               <div style={{ color: "#5A7A6E" }} className="text-sm">
-                Recording stop karo aur SOAP generate karo — summary yahan aayega. Phir transcript clear ho jayega aur nayi recording shuru kar sakte ho.
+                Stop the recording and generate the SOAP notes — the summary
+                will appear here. After that, the transcript will be cleared and
+                you can start a new recording.
               </div>
             )}
           </div>
