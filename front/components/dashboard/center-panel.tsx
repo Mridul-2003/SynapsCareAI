@@ -7,6 +7,8 @@ interface CenterPanelProps {
   selectedRecord: string;
   activeTab: string;
   onTabChange: (tab: string) => void;
+  onSoapGenerated?: (data: { diagnoses: any[]; entities: any[] }) => void;
+  onLoadingChange?: (loading: boolean) => void;
 }
 
 interface TranscriptMessage {
@@ -26,6 +28,8 @@ export default function CenterPanel({
   selectedRecord,
   activeTab,
   onTabChange,
+  onSoapGenerated,
+  onLoadingChange,
 }: CenterPanelProps) {
   const [isRecording, setIsRecording] = useState(false);
   const [messages, setMessages] = useState<TranscriptMessage[]>([]);
@@ -73,27 +77,21 @@ export default function CenterPanel({
       setSoapNote(null);
       setSoapError(null);
       setSummary(null);
-      const socket = io("http://localhost:8000", {
-        transports: ["websocket"],
-      });
 
+      const socket = io("http://localhost:8000", { transports: ["websocket"] });
       socketRef.current = socket;
 
-      socket.on("connect", () => {
-        console.log("Socket connected");
-      });
+      socket.on("connect", () => console.log("Socket connected"));
+      socket.on("recording_started", () => console.log("Recording started"));
 
-      socket.on("recording_started", () => {
-        console.log("Recording started");
-      });
-
+      // ✅ consultation_saved — IDs store karo
       socket.on(
         "consultation_saved",
         (data: { consultation_id: string; created_at: string }) => {
           consultationIdRef.current = data.consultation_id ?? "";
           createdAtRef.current = data.created_at ?? "";
           console.log(
-            "Consultation saved:",
+            "✅ Consultation saved:",
             data.consultation_id,
             data.created_at,
           );
@@ -148,23 +146,42 @@ export default function CenterPanel({
     setIsRecording(false);
 
     const socket = socketRef.current;
+
     if (socket?.connected) {
       socket.emit("stop_recording");
-      socket.once("consultation_saved", () => {
-        socket.disconnect();
-        setTimeout(() => {
-          generateSOAP();
+
+      // ✅ FIX: consultation_saved already aa chuka — directly wait karo aur generate karo
+      // Agar IDs already hain toh turant generate karo
+      // Agar nahi hain toh thoda wait karo (DynamoDB save hone ka time)
+      const tryGenerate = (attempts = 0) => {
+        if (consultationIdRef.current && createdAtRef.current) {
+          console.log("✅ IDs ready, generating SOAP...");
+          socket.disconnect();
           onTabChange("soap");
-        }, 500);
-      });
-      setTimeout(() => {
-        if (socket.connected) socket.disconnect();
-      }, 3000);
+          generateSOAP();
+        } else if (attempts < 10) {
+          // 500ms intervals mein max 5 seconds tak wait karo
+          console.log(
+            `⏳ Waiting for consultation_saved... attempt ${attempts + 1}`,
+          );
+          setTimeout(() => tryGenerate(attempts + 1), 500);
+        } else {
+          console.error("❌ consultation_saved never received");
+          socket.disconnect();
+          setSoapError("Consultation ID nahi mila. Dobara try karo.");
+        }
+      };
+
+      // Pehle stop event send ho jaye, phir check karo
+      setTimeout(() => tryGenerate(), 300);
     } else {
-      setTimeout(() => {
-        generateSOAP();
+      // Socket pehle se band — agar IDs hain toh generate karo
+      if (consultationIdRef.current && createdAtRef.current) {
         onTabChange("soap");
-      }, 500);
+        generateSOAP();
+      } else {
+        setSoapError("Connection lost. Consultation ID nahi mila.");
+      }
     }
   }
 
@@ -189,18 +206,17 @@ export default function CenterPanel({
     const createdAt = createdAtRef.current;
 
     if (!consultationId || !createdAt) {
-      setSoapError(
-        "Consultation ID not found. Please record the consultation first.",
-      );
+      setSoapError("Consultation ID nahi mila. Pehle recording karo.");
       return;
     }
 
     setSoapLoading(true);
+    onLoadingChange?.(true);
     setSoapError(null);
     setSoapNote(null);
     setSummary(null);
 
-    console.log("Generating SOAP for:", consultationId, createdAt);
+    console.log("🚀 Generating SOAP for:", consultationId, createdAt);
 
     try {
       const response = await fetch(
@@ -216,33 +232,63 @@ export default function CenterPanel({
       );
 
       const data = await response.json().catch(() => ({}));
+
       if (!response.ok) {
         throw new Error(
           (data as { detail?: string }).detail ||
             `Server error: ${response.status}`,
         );
       }
+
       if ((data as { status?: string }).status === "error") {
-        const err = (data as { error?: string }).error || "SOAP generate fail";
-        setSoapError(err);
+        setSoapError(
+          (data as { error?: string }).error || "SOAP generate fail",
+        );
         return;
       }
-      // API returns { soap, summary, entities, diagnoses }
-      const soapData: SOAPNote =
-        data.soap ?? data.soap_notes?.soap ?? data.soap_notes ?? data;
+
+      // ✅ Full API response console karo
+      console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+      console.log("📦 Full API Response:", data);
+      console.log("📋 SOAP:", data.soap);
+      console.log("📝 Summary:", data.summary);
+      console.log("🏷️  Entities:", data.entities);
+      console.log("🩺 Diagnoses:", data.diagnoses);
+      console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+
+      // ✅ SOAP note set karo
+      const soapData: SOAPNote = data.soap ?? {};
       setSoapNote(soapData);
-      setSummary((data as { summary?: string | null }).summary ?? null);
+      setSummary(data.summary ?? null);
+
+      // ✅ RightPanel ko diagnoses + entities bhejo
+      if (onSoapGenerated) {
+        console.log("✅ onSoapGenerated callback firing with:", {
+          diagnoses: data.diagnoses ?? [],
+          entities: data.entities ?? [],
+        });
+        onSoapGenerated({
+          diagnoses: data.diagnoses ?? [],
+          entities: data.entities ?? [],
+        });
+      } else {
+        console.warn("⚠️ onSoapGenerated prop missing! Parent se pass karo.");
+      }
+
       resetForNewConsultation();
     } catch (err: any) {
       setSoapError(err.message || "Failed to generate SOAP note");
     } finally {
       setSoapLoading(false);
+      onLoadingChange?.(false);
     }
   }
 
   useEffect(() => {
     return () => {
-      stopRecording();
+      processorRef.current?.disconnect();
+      audioContextRef.current?.close();
+      if (timerRef.current) clearInterval(timerRef.current);
     };
   }, []);
 
@@ -324,7 +370,6 @@ export default function CenterPanel({
             {soapSections.map(({ key, label, icon }) => {
               const value =
                 soapNote[key] ??
-                soapNote[key as keyof SOAPNote] ??
                 soapNote[
                   (key.charAt(0).toUpperCase() + key.slice(1)) as keyof SOAPNote
                 ];
@@ -380,7 +425,6 @@ export default function CenterPanel({
             DOB: {patient.dob} | {patient.mrn}
           </div>
         </div>
-
         <button
           onClick={toggleRecording}
           className="px-5 py-2.5 rounded-full text-xs font-bold"
@@ -445,8 +489,7 @@ export default function CenterPanel({
             ) : (
               <div style={{ color: "#5A7A6E" }} className="text-sm">
                 Stop the recording and generate the SOAP notes — the summary
-                will appear here. After that, the transcript will be cleared and
-                you can start a new recording.
+                will appear here.
               </div>
             )}
           </div>
