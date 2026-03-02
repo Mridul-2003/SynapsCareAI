@@ -14,4 +14,4 @@ COPY . .
 # expose the port used by api.py
 EXPOSE 8000
 
-CMD ["uvicorn", "api:socket_app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "apis.api:socket_app", "--host", "0.0.0.0", "--port", "8000"]
