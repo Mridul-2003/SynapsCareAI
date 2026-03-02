@@ -1,67 +1,51 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+
+type RecordItem = {
+  id: string
+  patient: string
+  date: string
+  time: string
+  status: string
+  duration: string
+  confidence: string
+}
+
+const API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
 
 export default function Records() {
   const [searchTerm, setSearchTerm] = useState('')
   const [filterStatus, setFilterStatus] = useState('all')
+  const [records, setRecords] = useState<RecordItem[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
-  const records = [
-    {
-      id: 1,
-      patient: 'John Smith',
-      date: '2024-02-28',
-      time: '14:30',
-      status: 'complete',
-      duration: '12 min',
-      confidence: '99%',
-    },
-    {
-      id: 2,
-      patient: 'Sarah Johnson',
-      date: '2024-02-28',
-      time: '13:15',
-      status: 'processing',
-      duration: '8 min',
-      confidence: '—',
-    },
-    {
-      id: 3,
-      patient: 'Michael Chen',
-      date: '2024-02-27',
-      time: '16:45',
-      status: 'complete',
-      duration: '15 min',
-      confidence: '97%',
-    },
-    {
-      id: 4,
-      patient: 'Emma Wilson',
-      date: '2024-02-27',
-      time: '10:20',
-      status: 'draft',
-      duration: '5 min',
-      confidence: '—',
-    },
-    {
-      id: 5,
-      patient: 'David Brown',
-      date: '2024-02-26',
-      time: '11:30',
-      status: 'complete',
-      duration: '10 min',
-      confidence: '98%',
-    },
-    {
-      id: 6,
-      patient: 'Lisa Anderson',
-      date: '2024-02-26',
-      time: '09:00',
-      status: 'complete',
-      duration: '14 min',
-      confidence: '96%',
-    },
-  ]
+  useEffect(() => {
+    const fetchRecords = async () => {
+      try {
+        setIsLoading(true)
+        setError(null)
+
+        const res = await fetch(`${API_BASE_URL}/records`)
+        if (!res.ok) {
+          throw new Error('Failed to fetch records')
+        }
+
+        const data = await res.json()
+        const items: RecordItem[] = data?.records ?? []
+        setRecords(items)
+      } catch (err) {
+        console.error('Error fetching records', err)
+        setError('Unable to load records')
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchRecords()
+  }, [])
 
   const filteredRecords = records.filter((record) => {
     const matchesSearch =
@@ -149,7 +133,46 @@ export default function Records() {
 
       {/* Records Grid */}
       <div className="grid grid-cols-1 gap-3 flex-1 overflow-y-auto">
-        {filteredRecords.map((record) => {
+        {isLoading && (
+          <div
+            className="p-4 rounded-lg border text-xs"
+            style={{
+              background: 'rgba(255,255,255,.02)',
+              borderColor: 'rgba(0,200,150,0.15)',
+              color: '#5A7A6E',
+            }}
+          >
+            Loading records...
+          </div>
+        )}
+
+        {!isLoading && error && (
+          <div
+            className="p-4 rounded-lg border text-xs"
+            style={{
+              background: 'rgba(255,77,109,.08)',
+              borderColor: 'rgba(255,77,109,.35)',
+              color: '#FFB3C3',
+            }}
+          >
+            {error}
+          </div>
+        )}
+
+        {!isLoading && !error && filteredRecords.length === 0 && (
+          <div
+            className="p-4 rounded-lg border text-xs"
+            style={{
+              background: 'rgba(255,255,255,.02)',
+              borderColor: 'rgba(0,200,150,0.15)',
+              color: '#5A7A6E',
+            }}
+          >
+            No records found yet.
+          </div>
+        )}
+
+        {!isLoading && !error && filteredRecords.map((record) => {
           const statusColor = getStatusColor(record.status)
           return (
             <div

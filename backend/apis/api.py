@@ -3,7 +3,8 @@ import socketio
 import logging
 import boto3
 import uuid
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from amazon_transcribe.client import TranscribeStreamingClient
 from amazon_transcribe.handlers import TranscriptResultStreamHandler
 from amazon_transcribe.model import TranscriptEvent
@@ -56,6 +57,14 @@ sio = socketio.AsyncServer(
 )
 
 app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 socket_app = socketio.ASGIApp(sio, other_asgi_app=app)
 
@@ -147,6 +156,63 @@ def _save_consultation_to_dynamo(sid):
     except Exception as e:
         print("DynamoDB save error:", e)
         return None, None
+
+
+@app.get("/records")
+async def list_records(limit: int = 50):
+    """
+    Return a list of consultation records for the Records page.
+    Data is read from the same DynamoDB table used for transcripts.
+    """
+    try:
+        response = table.scan(Limit=limit)
+    except Exception as e:
+        print("DynamoDB scan error:", e)
+        raise HTTPException(status_code=500, detail="Failed to fetch records from DynamoDB")
+
+    items = response.get("Items", [])
+    records = []
+
+    for item in items:
+        created_at = item.get("createdAt")
+        dt = None
+        if created_at:
+            try:
+                dt = datetime.datetime.strptime(created_at, "%Y-%m-%dT%H:%M:%SZ")
+            except ValueError:
+                dt = None
+
+        if dt:
+            date_str = dt.strftime("%Y-%m-%d")
+            time_str = dt.strftime("%H:%M")
+        else:
+            date_str = ""
+            time_str = ""
+
+        raw_status = item.get("status", "completed")
+        status = "complete" if raw_status == "completed" else raw_status
+
+        records.append(
+            {
+                "id": item.get("consultationID"),
+                "patient": item.get("patientName", "Unknown patient"),
+                "date": date_str,
+                "time": time_str,
+                "status": status,
+                "duration": item.get("duration", ""),
+                "confidence": item.get("confidence", "—"),
+            }
+        )
+
+    records.sort(
+        key=lambda r: (
+            r.get("date") or "",
+            r.get("time") or "",
+        ),
+        reverse=True,
+    )
+
+    return {"records": records}
 
 
 # =============================
