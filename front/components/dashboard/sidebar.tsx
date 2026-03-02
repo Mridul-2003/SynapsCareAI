@@ -1,45 +1,71 @@
 "use client";
 
+import { useEffect, useState } from "react";
+
 interface SidebarProps {
   selectedRecord: string;
   onSelectRecord: (recordId: string) => void;
+  refreshKey?: number;
 }
+
+type SidebarRecord = {
+  id: string;
+  name: string;
+  date: string;
+  status: string;
+};
+
+const API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 export default function Sidebar({
   selectedRecord,
   onSelectRecord,
+  refreshKey = 0,
 }: SidebarProps) {
-  const records = [
-    {
-      id: "rec-001",
-      name: "John Smith",
-      date: "2024-02-28",
-      status: "complete",
-    },
-    {
-      id: "rec-002",
-      name: "Sarah Johnson",
-      date: "2024-02-27",
-      status: "review",
-    },
-    {
-      id: "rec-003",
-      name: "Michael Chen",
-      date: "2024-02-26",
-      status: "draft",
-    },
-    {
-      id: "rec-004",
-      name: "Emma Wilson",
-      date: "2024-02-25",
-      status: "complete",
-    },
-  ];
+  const [records, setRecords] = useState<SidebarRecord[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchRecords = async () => {
+      try {
+        setIsLoading(true);
+        const res = await fetch(`${API_BASE_URL}/records`);
+        if (!res.ok) {
+          throw new Error("Failed to fetch records");
+        }
+        const data = await res.json();
+        const items = (data.records || []) as any[];
+
+        const mapped: SidebarRecord[] = items.map((item) => ({
+          id: item.id,
+          name: item.patient,
+          date: item.date,
+          status: item.status,
+        }));
+
+        setRecords(mapped);
+
+        if (!selectedRecord && mapped.length > 0) {
+          onSelectRecord(mapped[0].id);
+        }
+      } catch (err) {
+        console.error("Error loading sidebar records", err);
+        setRecords([]);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchRecords();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refreshKey]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
       case "complete":
         return { bg: "rgba(0,200,150,.15)", text: "#00C896" };
+      case "processing":
       case "review":
         return { bg: "rgba(255,149,0,.15)", text: "#FF9500" };
       case "draft":
@@ -103,7 +129,32 @@ export default function Sidebar({
           scrollbarColor: "rgba(0,200,150,0.15) transparent",
         }}
       >
-        {records.map((record) => {
+        {isLoading && (
+          <div
+            className="text-xs px-3 py-2 rounded-lg"
+            style={{
+              background: "rgba(255,255,255,.02)",
+              color: "#5A7A6E",
+            }}
+          >
+            Loading records...
+          </div>
+        )}
+
+        {!isLoading && records.length === 0 && (
+          <div
+            className="text-xs px-3 py-2 rounded-lg"
+            style={{
+              background: "rgba(255,255,255,.02)",
+              color: "#5A7A6E",
+            }}
+          >
+            No consultations yet. Start a new recording to create one.
+          </div>
+        )}
+
+        {!isLoading &&
+          records.map((record) => {
           const isActive = selectedRecord === record.id;
           const statusColor = getStatusColor(record.status);
 
@@ -148,8 +199,7 @@ export default function Sidebar({
                 </span>
               </div>
             </div>
-          );
-        })}
+          })}
       </div>
 
       {/* Stats */}
@@ -160,8 +210,16 @@ export default function Sidebar({
         }}
       >
         {[
-          { num: "42", label: "Total" },
-          { num: "8", label: "Pending" },
+          {
+            num: records.length.toString(),
+            label: "Total",
+          },
+          {
+            num: records
+              .filter((r) => r.status !== "complete")
+              .length.toString(),
+            label: "Pending",
+          },
         ].map((stat, i) => (
           <div
             key={i}

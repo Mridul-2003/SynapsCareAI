@@ -9,6 +9,7 @@ interface CenterPanelProps {
   onTabChange: (tab: string) => void;
   onSoapGenerated?: (data: { diagnoses: any[]; entities: any[] }) => void;
   onLoadingChange?: (loading: boolean) => void;
+  onConsultationSaved?: () => void;
 }
 
 interface TranscriptMessage {
@@ -24,12 +25,16 @@ interface SOAPNote {
   [key: string]: string | undefined;
 }
 
+const API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+
 export default function CenterPanel({
   selectedRecord,
   activeTab,
   onTabChange,
   onSoapGenerated,
   onLoadingChange,
+  onConsultationSaved,
 }: CenterPanelProps) {
   const [isRecording, setIsRecording] = useState(false);
   const [messages, setMessages] = useState<TranscriptMessage[]>([]);
@@ -38,6 +43,10 @@ export default function CenterPanel({
   const [soapLoading, setSoapLoading] = useState(false);
   const [soapError, setSoapError] = useState<string | null>(null);
   const [summary, setSummary] = useState<string | null>(null);
+
+  const [patientName, setPatientName] = useState("");
+  const [doctorName, setDoctorName] = useState("");
+  const [patientDob, setPatientDob] = useState("");
 
   const consultationIdRef = useRef<string>("");
   const createdAtRef = useRef<string>("");
@@ -50,21 +59,6 @@ export default function CenterPanel({
   const [waveformBars] = useState(
     Array.from({ length: 40 }, () => Math.random() * 100),
   );
-
-  const patientData = {
-    "rec-001": { name: "John Smith", dob: "1985-03-15", mrn: "MRN-2024-001" },
-    "rec-002": {
-      name: "Sarah Johnson",
-      dob: "1990-07-22",
-      mrn: "MRN-2024-002",
-    },
-    "rec-003": { name: "Michael Chen", dob: "1978-11-08", mrn: "MRN-2024-003" },
-    "rec-004": { name: "Emma Wilson", dob: "1995-05-30", mrn: "MRN-2024-004" },
-  };
-
-  const patient =
-    patientData[selectedRecord as keyof typeof patientData] ||
-    patientData["rec-001"];
 
   function formatTime(sec: number) {
     const m = Math.floor(sec / 60);
@@ -198,7 +192,53 @@ export default function CenterPanel({
     setDuration(0);
     consultationIdRef.current = "";
     createdAtRef.current = "";
+    setPatientName("");
+    setDoctorName("");
+    setPatientDob("");
     onTabChange("transcript");
+  }
+
+  async function saveConsultationMetadata(args: {
+    consultationId: string;
+    createdAt: string;
+    soap: SOAPNote | null;
+    summary: string | null;
+    diagnoses: any[];
+    entities: any[];
+  }) {
+    const { consultationId, createdAt, soap, summary, diagnoses, entities } =
+      args;
+
+    if (!consultationId || !createdAt) return;
+
+    try {
+      const res = await fetch(
+        `${API_BASE_URL}/consultations/${consultationId}/metadata`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            created_at: createdAt,
+            patient_name: patientName || "Unknown patient",
+            doctor_name: doctorName || "Unknown doctor",
+            patient_dob: patientDob || "",
+            soap,
+            summary,
+            diagnoses,
+            entities,
+          }),
+        },
+      );
+
+      if (!res.ok) {
+        console.error("❌ Failed to save consultation metadata");
+      } else {
+        console.log("✅ Consultation metadata saved");
+        onConsultationSaved?.();
+      }
+    } catch (err) {
+      console.error("Error saving consultation metadata", err);
+    }
   }
 
   async function generateSOAP() {
@@ -274,6 +314,15 @@ export default function CenterPanel({
       } else {
         console.warn("⚠️ onSoapGenerated prop missing! Parent se pass karo.");
       }
+
+      await saveConsultationMetadata({
+        consultationId,
+        createdAt,
+        soap: soapData,
+        summary: data.summary ?? null,
+        diagnoses: data.diagnoses ?? [],
+        entities: data.entities ?? [],
+      });
 
       resetForNewConsultation();
     } catch (err: any) {
@@ -417,12 +466,69 @@ export default function CenterPanel({
         className="px-6 py-4 border-b flex items-center justify-between"
         style={{ borderColor: "rgba(0,200,150,0.15)" }}
       >
-        <div>
-          <div className="text-lg font-bold" style={{ color: "#E8F4F0" }}>
-            {patient.name}
+        <div className="flex-1 space-y-2 mr-4">
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label
+                className="block text-[10px] uppercase mb-1"
+                style={{ color: "#5A7A6E", letterSpacing: "1px" }}
+              >
+                Patient Name
+              </label>
+              <input
+                type="text"
+                value={patientName}
+                onChange={(e) => setPatientName(e.target.value)}
+                placeholder="John Smith"
+                className="w-full px-3 py-1.5 rounded border text-xs outline-none"
+                style={{
+                  background: "rgba(255,255,255,.03)",
+                  borderColor: "rgba(0,200,150,0.15)",
+                  color: "#E8F4F0",
+                }}
+              />
+            </div>
+            <div>
+              <label
+                className="block text-[10px] uppercase mb-1"
+                style={{ color: "#5A7A6E", letterSpacing: "1px" }}
+              >
+                Doctor Name
+              </label>
+              <input
+                type="text"
+                value={doctorName}
+                onChange={(e) => setDoctorName(e.target.value)}
+                placeholder="Dr. Patel"
+                className="w-full px-3 py-1.5 rounded border text-xs outline-none"
+                style={{
+                  background: "rgba(255,255,255,.03)",
+                  borderColor: "rgba(0,200,150,0.15)",
+                  color: "#E8F4F0",
+                }}
+              />
+            </div>
           </div>
-          <div className="text-xs" style={{ color: "#5A7A6E" }}>
-            DOB: {patient.dob} | {patient.mrn}
+          <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-2 items-end">
+            <div className="max-w-[180px]">
+              <label
+                className="block text-[10px] uppercase mb-1"
+                style={{ color: "#5A7A6E", letterSpacing: "1px" }}
+              >
+                Patient DOB
+              </label>
+              <input
+                type="date"
+                value={patientDob}
+                onChange={(e) => setPatientDob(e.target.value)}
+                className="w-full px-3 py-1.5 rounded border text-xs outline-none"
+                style={{
+                  background: "rgba(255,255,255,.03)",
+                  borderColor: "rgba(0,200,150,0.15)",
+                  color: "#E8F4F0",
+                }}
+              />
+            </div>
           </div>
         </div>
         <button

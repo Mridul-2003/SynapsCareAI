@@ -6,7 +6,7 @@ import CenterPanel from "./dashboard/center-panel";
 import RightPanel from "./dashboard/right-panel";
 
 export default function Dashboard() {
-  const [selectedRecord, setSelectedRecord] = useState("rec-001");
+  const [selectedRecord, setSelectedRecord] = useState<string>("");
   const [activeTab, setActiveTab] = useState("transcript");
 
   // ✅ SOAP API se aane wala data yahan store hoga
@@ -16,6 +16,7 @@ export default function Dashboard() {
   }>({ diagnoses: [], entities: [] });
 
   const [soapLoading, setSoapLoading] = useState(false);
+  const [recordsRefreshKey, setRecordsRefreshKey] = useState(0);
 
   return (
     <div
@@ -25,6 +26,7 @@ export default function Dashboard() {
       <Sidebar
         selectedRecord={selectedRecord}
         onSelectRecord={setSelectedRecord}
+        refreshKey={recordsRefreshKey}
       />
 
       <CenterPanel
@@ -37,6 +39,9 @@ export default function Dashboard() {
           setSoapData(data);
         }}
         onLoadingChange={setSoapLoading}
+        onConsultationSaved={() =>
+          setRecordsRefreshKey((prev) => prev + 1)
+        }
       />
 
       <RightPanel

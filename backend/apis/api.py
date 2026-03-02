@@ -5,6 +5,7 @@ import boto3
 import uuid
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 from amazon_transcribe.client import TranscribeStreamingClient
 from amazon_transcribe.handlers import TranscriptResultStreamHandler
 from amazon_transcribe.model import TranscriptEvent
@@ -156,6 +157,55 @@ def _save_consultation_to_dynamo(sid):
     except Exception as e:
         print("DynamoDB save error:", e)
         return None, None
+
+
+class ConsultationMetadata(BaseModel):
+    created_at: str
+    patient_name: str
+    doctor_name: str
+    patient_dob: str
+    soap: dict | None = None
+    summary: str | None = None
+    diagnoses: list[dict] | None = None
+    entities: list[dict] | None = None
+
+
+@app.post("/consultations/{consultation_id}/metadata")
+async def update_consultation_metadata(consultation_id: str, payload: ConsultationMetadata):
+    """
+    Update a consultation record with patient + SOAP metadata.
+    """
+    try:
+        table.update_item(
+            Key={
+                "consultationID": consultation_id,
+                "createdAt": payload.created_at,
+            },
+            UpdateExpression=(
+                "SET "
+                "patientName = :pn, "
+                "doctorName = :dn, "
+                "patientDob = :dob, "
+                "soap = :soap, "
+                "summary = :summary, "
+                "diagnoses = :diag, "
+                "entities = :entities"
+            ),
+            ExpressionAttributeValues={
+                ":pn": payload.patient_name,
+                ":dn": payload.doctor_name,
+                ":dob": payload.patient_dob,
+                ":soap": payload.soap or {},
+                ":summary": payload.summary or "",
+                ":diag": payload.diagnoses or [],
+                ":entities": payload.entities or [],
+            },
+        )
+    except Exception as e:
+        print("DynamoDB update error:", e)
+        raise HTTPException(status_code=500, detail="Failed to update consultation metadata")
+
+    return {"status": "ok"}
 
 
 @app.get("/records")
