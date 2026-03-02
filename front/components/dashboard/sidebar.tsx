@@ -155,50 +155,51 @@ export default function Sidebar({
 
         {!isLoading &&
           records.map((record) => {
-          const isActive = selectedRecord === record.id;
-          const statusColor = getStatusColor(record.status);
+            const isActive = selectedRecord === record.id;
+            const statusColor = getStatusColor(record.status);
 
-          return (
-            <div
-              key={record.id}
-              onClick={() => onSelectRecord(record.id)}
-              className="p-3 rounded-lg border cursor-pointer transition-all"
-              style={{
-                borderColor: isActive
-                  ? "rgba(0,200,150,.3)"
-                  : "rgba(0,200,150,0.15)",
-                background: isActive
-                  ? "rgba(0,200,150,.05)"
-                  : "rgba(255,255,255,.02)",
-                transform: isActive ? "translateX(3px)" : "translateX(0)",
-                borderLeftWidth: isActive ? "3px" : "1px",
-                borderLeftColor: isActive ? "#00C896" : undefined,
-              }}
-            >
+            return (
               <div
-                className="font-semibold text-sm mb-0.5"
-                style={{ color: "#E8F4F0" }}
+                key={record.id}
+                onClick={() => onSelectRecord(record.id)}
+                className="p-3 rounded-lg border cursor-pointer transition-all"
+                style={{
+                  borderColor: isActive
+                    ? "rgba(0,200,150,.3)"
+                    : "rgba(0,200,150,0.15)",
+                  background: isActive
+                    ? "rgba(0,200,150,.05)"
+                    : "rgba(255,255,255,.02)",
+                  transform: isActive ? "translateX(3px)" : "translateX(0)",
+                  borderLeftWidth: isActive ? "3px" : "1px",
+                  borderLeftColor: isActive ? "#00C896" : undefined,
+                }}
               >
-                {record.name}
-              </div>
-              <div
-                className="text-xs flex gap-2 items-center"
-                style={{ color: "#5A7A6E" }}
-              >
-                <span>{record.date}</span>
-                <span
-                  className="px-2 py-0.5 rounded-full text-xs font-semibold uppercase"
-                  style={{
-                    background: statusColor.bg,
-                    color: statusColor.text,
-                    fontSize: "9px",
-                    letterSpacing: "0.5px",
-                  }}
+                <div
+                  className="font-semibold text-sm mb-0.5"
+                  style={{ color: "#E8F4F0" }}
                 >
-                  {record.status}
-                </span>
+                  {record.name}
+                </div>
+                <div
+                  className="text-xs flex gap-2 items-center"
+                  style={{ color: "#5A7A6E" }}
+                >
+                  <span>{record.date}</span>
+                  <span
+                    className="px-2 py-0.5 rounded-full text-xs font-semibold uppercase"
+                    style={{
+                      background: statusColor.bg,
+                      color: statusColor.text,
+                      fontSize: "9px",
+                      letterSpacing: "0.5px",
+                    }}
+                  >
+                    {record.status}
+                  </span>
+                </div>
               </div>
-            </div>
+            );
           })}
       </div>
 
