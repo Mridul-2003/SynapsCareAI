@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 
 interface SidebarProps {
   selectedRecord: string;
@@ -23,6 +24,7 @@ export default function Sidebar({
   onSelectRecord,
   refreshKey = 0,
 }: SidebarProps) {
+  const router = useRouter();
   const [records, setRecords] = useState<SidebarRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -116,6 +118,10 @@ export default function Sidebar({
               "0 0 14px rgba(0,200,150,.3)";
             (e.target as HTMLElement).style.transform = "translateY(0)";
           }}
+          onClick={() => {
+            onSelectRecord("");
+            router.push("/dashboard");
+          }}
         >
           ➕ New
         </button>
@@ -161,7 +167,10 @@ export default function Sidebar({
             return (
               <div
                 key={record.id}
-                onClick={() => onSelectRecord(record.id)}
+                onClick={() => {
+                  onSelectRecord(record.id);
+                  router.push(`/dashboard/${record.id}`);
+                }}
                 className="p-3 rounded-lg border cursor-pointer transition-all"
                 style={{
                   borderColor: isActive

@@ -3,6 +3,8 @@ import socketio
 import logging
 import boto3
 import uuid
+from boto3.dynamodb.conditions import Key
+from decimal import Decimal
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -45,6 +47,20 @@ dynamodb = boto3.resource(
 )
 
 table = dynamodb.Table(os.environ.get("DYNAMODB_TABLE"))
+
+
+def _to_dynamo_compatible(value):
+    """
+    Recursively convert floats to Decimal so DynamoDB accepts the payload.
+    """
+    if isinstance(value, float):
+        # Use string to avoid binary float issues
+        return Decimal(str(value))
+    if isinstance(value, list):
+        return [_to_dynamo_compatible(v) for v in value]
+    if isinstance(value, dict):
+        return {k: _to_dynamo_compatible(v) for k, v in value.items()}
+    return value
 
 # =============================
 # Socket.IO + FastAPI Setup
@@ -148,11 +164,11 @@ def _save_consultation_to_dynamo(sid):
             Item={
                 "consultationID": consultation_id,
                 "createdAt": created_at,
-                "status": "completed",
+                "status": "draft",
                 "transcript": transcript,
             }
         )
-        print(f"DynamoDB saved: {consultation_id} | {created_at} | {len(transcript)} entries")
+        print(f"DynamoDB saved (draft): {consultation_id} | {created_at} | {len(transcript)} entries")
         return consultation_id, created_at
     except Exception as e:
         print("DynamoDB save error:", e)
@@ -176,36 +192,90 @@ async def update_consultation_metadata(consultation_id: str, payload: Consultati
     Update a consultation record with patient + SOAP metadata.
     """
     try:
-        table.update_item(
+        soap_val = _to_dynamo_compatible(payload.soap or {})
+        diag_val = _to_dynamo_compatible(payload.diagnoses or [])
+        entities_val = _to_dynamo_compatible(payload.entities or [])
+
+        resp = table.update_item(
             Key={
                 "consultationID": consultation_id,
                 "createdAt": payload.created_at,
             },
             UpdateExpression=(
                 "SET "
-                "patientName = :pn, "
-                "doctorName = :dn, "
-                "patientDob = :dob, "
-                "soap = :soap, "
-                "summary = :summary, "
-                "diagnoses = :diag, "
-                "entities = :entities"
+                "#pn = :pn, "
+                "#dn = :dn, "
+                "#dob = :dob, "
+                "#soap = :soap, "
+                "#summary = :summary, "
+                "#diag = :diag, "
+                "#entities = :entities, "
+                "#status = :status"
             ),
+            ExpressionAttributeNames={
+                "#pn": "patientName",
+                "#dn": "doctorName",
+                "#dob": "patientDob",
+                "#soap": "soap",
+                "#summary": "summary",
+                "#diag": "diagnoses",
+                "#entities": "entities",
+                "#status": "status",
+            },
             ExpressionAttributeValues={
                 ":pn": payload.patient_name,
                 ":dn": payload.doctor_name,
                 ":dob": payload.patient_dob,
-                ":soap": payload.soap or {},
+                ":soap": soap_val,
                 ":summary": payload.summary or "",
-                ":diag": payload.diagnoses or [],
-                ":entities": payload.entities or [],
+                ":diag": diag_val,
+                ":entities": entities_val,
+                ":status": "completed",
             },
+            ReturnValues="UPDATED_NEW",
         )
+        print("DynamoDB metadata update:", resp.get("Attributes", {}))
     except Exception as e:
-        print("DynamoDB update error:", e)
+        print("DynamoDB update error:", repr(e))
         raise HTTPException(status_code=500, detail="Failed to update consultation metadata")
 
     return {"status": "ok"}
+
+
+@app.get("/consultations/{consultation_id}")
+async def get_consultation(consultation_id: str):
+    """
+    Fetch a single consultation (latest createdAt) by ID, including transcript and metadata.
+    """
+    try:
+        response = table.query(
+            KeyConditionExpression=Key("consultationID").eq(consultation_id),
+            ScanIndexForward=False,  # latest createdAt first
+            Limit=1,
+        )
+    except Exception as e:
+        print("DynamoDB query error:", e)
+        raise HTTPException(status_code=500, detail="Failed to fetch consultation")
+
+    items = response.get("Items", [])
+    if not items:
+        raise HTTPException(status_code=404, detail="Consultation not found")
+
+    item = items[0]
+
+    return {
+        "consultationID": item.get("consultationID"),
+        "createdAt": item.get("createdAt"),
+        "status": item.get("status", "draft"),
+        "patientName": item.get("patientName", "Unknown patient"),
+        "doctorName": item.get("doctorName", ""),
+        "patientDob": item.get("patientDob", ""),
+        "transcript": item.get("transcript", []),
+        "soap": item.get("soap", {}),
+        "summary": item.get("summary", ""),
+        "diagnoses": item.get("diagnoses", []),
+        "entities": item.get("entities", []),
+    }
 
 
 @app.get("/records")

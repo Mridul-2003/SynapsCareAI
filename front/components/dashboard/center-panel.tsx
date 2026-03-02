@@ -60,6 +60,29 @@ export default function CenterPanel({
     Array.from({ length: 40 }, () => Math.random() * 100),
   );
 
+  function cleanupAudio() {
+    try {
+      processorRef.current?.disconnect();
+    } catch (_) {
+      // ignore
+    }
+    try {
+      const ctx = audioContextRef.current;
+      if (ctx && typeof ctx.close === "function" && ctx.state !== "closed") {
+        void ctx.close();
+      }
+    } catch (_) {
+      // ignore InvalidStateError or other close errors
+    } finally {
+      audioContextRef.current = null;
+      processorRef.current = null;
+    }
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+  }
+
   function formatTime(sec: number) {
     const m = Math.floor(sec / 60);
     const s = sec % 60;
@@ -134,9 +157,7 @@ export default function CenterPanel({
   }
 
   function stopRecording() {
-    processorRef.current?.disconnect();
-    audioContextRef.current?.close();
-    if (timerRef.current) clearInterval(timerRef.current);
+    cleanupAudio();
     setIsRecording(false);
 
     const socket = socketRef.current;
@@ -231,7 +252,12 @@ export default function CenterPanel({
       );
 
       if (!res.ok) {
-        console.error("❌ Failed to save consultation metadata");
+        const text = await res.text().catch(() => "");
+        console.error(
+          "❌ Failed to save consultation metadata",
+          res.status,
+          text,
+        );
       } else {
         console.log("✅ Consultation metadata saved");
         onConsultationSaved?.();
@@ -335,9 +361,7 @@ export default function CenterPanel({
 
   useEffect(() => {
     return () => {
-      processorRef.current?.disconnect();
-      audioContextRef.current?.close();
-      if (timerRef.current) clearInterval(timerRef.current);
+      cleanupAudio();
     };
   }, []);
 
