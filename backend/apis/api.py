@@ -15,9 +15,6 @@ from dotenv import load_dotenv
 import os
 import datetime
 
-# =============================
-# Load ENV (from backend/.env regardless of CWD)
-# =============================
 load_dotenv()
 _BACKEND_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 load_dotenv(os.path.join(_BACKEND_DIR, ".env"))
@@ -276,6 +273,44 @@ async def get_consultation(consultation_id: str):
         "diagnoses": item.get("diagnoses", []),
         "entities": item.get("entities", []),
     }
+
+
+
+@app.delete("/records/{consultation_id}")
+async def delete_record(consultation_id: str):
+    """
+    Remove all DynamoDB items for a given consultationID. Typically there
+    will only be one record per ID; the UI uses this endpoint to let users
+    permanently purge a consultation.
+    """
+    try:
+        response = table.query(
+            KeyConditionExpression=Key("consultationID").eq(consultation_id),
+        )
+    except Exception as e:
+        print("DynamoDB query error before delete:", e)
+        raise HTTPException(status_code=500, detail="Failed to query consultation")
+
+    items = response.get("Items", [])
+    if not items:
+        raise HTTPException(status_code=404, detail="Consultation not found")
+
+    deleted_count = 0
+    try:
+        for item in items:
+            table.delete_item(
+                Key={
+                    "consultationID": consultation_id,
+                    "createdAt": item.get("createdAt"),
+                }
+            )
+            deleted_count += 1
+        print(f"DynamoDB deleted {deleted_count} item(s) for {consultation_id}")
+    except Exception as e:
+        print("DynamoDB delete error:", e)
+        raise HTTPException(status_code=500, detail="Failed to delete consultation")
+
+    return {"status": "ok", "deleted": deleted_count}
 
 
 @app.get("/records")
