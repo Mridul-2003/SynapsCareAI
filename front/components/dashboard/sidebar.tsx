@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 
 interface SidebarProps {
   selectedRecord: string;
@@ -27,6 +28,7 @@ export default function Sidebar({
   const router = useRouter();
   const [records, setRecords] = useState<SidebarRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchRecords = async () => {
@@ -67,6 +69,11 @@ export default function Sidebar({
     switch (status) {
       case "complete":
         return { bg: "rgba(0,200,150,.15)", text: "#00C896" };
+      case "verified":
+        return { bg: "rgba(0,163,255,.18)", text: "#00A3FF" };
+      case "not_verified":
+      case "not-verified":
+        return { bg: "rgba(255,149,0,.18)", text: "#FF9500" };
       case "processing":
       case "review":
         return { bg: "rgba(255,149,0,.15)", text: "#FF9500" };
@@ -75,6 +82,53 @@ export default function Sidebar({
       default:
         return { bg: "rgba(255,255,255,.06)", text: "#5A7A6E" };
     }
+  };
+
+  const performDelete = async (recordId: string) => {
+    if (deletingId || !recordId) return;
+    try {
+      setDeletingId(recordId);
+      const res = await fetch(`${API_BASE_URL}/records/${recordId}`, {
+        method: "DELETE",
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast.error(
+          (body as { detail?: string }).detail ||
+            "Failed to delete consultation.",
+        );
+        return;
+      }
+      setRecords((prev) => prev.filter((r) => r.id !== recordId));
+      if (selectedRecord === recordId) {
+        onSelectRecord("");
+        router.push("/dashboard");
+      }
+      toast.success("Consultation deleted");
+    } catch (err) {
+      console.error("Failed to delete record", err);
+      toast.error("Failed to delete consultation.");
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  const handleDelete = (
+    e: React.MouseEvent<HTMLButtonElement>,
+    recordId: string,
+  ) => {
+    e.stopPropagation();
+    if (deletingId || !recordId) return;
+
+    toast("Delete this consultation?", {
+      description: "This action cannot be undone.",
+      action: {
+        label: "Delete",
+        onClick: () => {
+          void performDelete(recordId);
+        },
+      },
+    });
   };
 
   return (
@@ -184,11 +238,25 @@ export default function Sidebar({
                   borderLeftColor: isActive ? "#00C896" : undefined,
                 }}
               >
-                <div
-                  className="font-semibold text-sm mb-0.5"
-                  style={{ color: "#E8F4F0" }}
-                >
-                  {record.name}
+                <div className="flex items-start justify-between gap-2 mb-0.5">
+                  <div
+                    className="font-semibold text-sm truncate"
+                    style={{ color: "#E8F4F0" }}
+                  >
+                    {record.name}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={(e) => handleDelete(e, record.id)}
+                    className="text-[10px] px-1.5 py-0.5 rounded-full border-none cursor-pointer"
+                    style={{
+                      background: "rgba(255,77,109,0.14)",
+                      color: "#FFB3C3",
+                    }}
+                    title="Delete consultation"
+                  >
+                    {deletingId === record.id ? "…" : "Delete"}
+                  </button>
                 </div>
                 <div
                   className="text-xs flex gap-2 items-center"

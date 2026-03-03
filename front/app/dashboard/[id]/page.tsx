@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Sidebar from '@/components/dashboard/sidebar'
 import RightPanel from '@/components/dashboard/right-panel'
+import { toast } from 'sonner'
 
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
@@ -21,6 +22,7 @@ type Consultation = {
   patientName: string
   doctorName: string
   patientDob: string
+  verifiedBy?: string
   transcript: TranscriptEntry[]
   soap: Record<string, any>
   summary: string
@@ -36,6 +38,25 @@ export default function ConsultationDetailPage() {
   const [data, setData] = useState<Consultation | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+
+  const [showVerifyModal, setShowVerifyModal] = useState(false)
+  const [verifyingDoctor, setVerifyingDoctor] = useState('')
+  const [verifyStatus, setVerifyStatus] = useState<'verified' | 'not_verified'>(
+    'verified',
+  )
+  const [verifyLoading, setVerifyLoading] = useState(false)
+  const [verifyError, setVerifyError] = useState<string | null>(null)
+
+  const [isEditing, setIsEditing] = useState(false)
+  const [editSummary, setEditSummary] = useState('')
+  const [editSoap, setEditSoap] = useState({
+    subjective: '',
+    objective: '',
+    assessment: '',
+    plan: '',
+  })
+  const [saveLoading, setSaveLoading] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!id) return
@@ -65,11 +86,173 @@ export default function ConsultationDetailPage() {
   const createdDate =
     data?.createdAt ? new Date(data.createdAt).toLocaleString() : ''
 
+  const statusStyle = (() => {
+    const status = data?.status
+    if (!status) return null
+    switch (status) {
+      case 'draft':
+        return {
+          label: 'Draft',
+          bg: 'rgba(255,255,255,.06)',
+          color: '#5A7A6E',
+        }
+      case 'complete':
+      case 'completed':
+        return {
+          label: 'Complete',
+          bg: 'rgba(0,200,150,.15)',
+          color: '#00C896',
+        }
+      case 'verified':
+        return {
+          label: 'Verified',
+          bg: 'rgba(0,163,255,.18)',
+          color: '#00A3FF',
+        }
+      case 'not_verified':
+      case 'not-verified':
+        return {
+          label: 'Not Verified',
+          bg: 'rgba(255,149,0,.18)',
+          color: '#FF9500',
+        }
+      default:
+        return {
+          label: status,
+          bg: 'rgba(255,255,255,.06)',
+          color: '#5A7A6E',
+        }
+    }
+  })()
+
+  const openVerifyModal = () => {
+    if (!data) return
+    setVerifyingDoctor(data.doctorName || '')
+    setVerifyStatus('verified')
+    setVerifyError(null)
+    setShowVerifyModal(true)
+  }
+
+  const startEditing = () => {
+    if (!data) return
+    const soap = data.soap || {}
+    const readField = (key: string) =>
+      (soap as any)[key] ??
+      (soap as any)[key.charAt(0).toUpperCase() + key.slice(1)] ??
+      ''
+
+    setEditSummary(data.summary || '')
+    setEditSoap({
+      subjective: String(readField('subjective') || ''),
+      objective: String(readField('objective') || ''),
+      assessment: String(readField('assessment') || ''),
+      plan: String(readField('plan') || ''),
+    })
+    setSaveError(null)
+    setIsEditing(true)
+  }
+
+  const cancelEditing = () => {
+    setIsEditing(false)
+    setSaveError(null)
+  }
+
+  const handleSaveEdits = async () => {
+    if (!data) return
+    try {
+      setSaveLoading(true)
+      setSaveError(null)
+      const res = await fetch(
+        `${API_BASE_URL}/consultations/${data.consultationID}/metadata`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            created_at: data.createdAt,
+            patient_name: data.patientName || 'Unknown patient',
+            doctor_name: data.doctorName || 'Unknown doctor',
+            patient_dob: data.patientDob || '',
+            soap: editSoap,
+            summary: editSummary,
+            diagnoses: data.diagnoses || [],
+            entities: data.entities || [],
+            status: data.status,
+          }),
+        },
+      )
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        throw new Error(
+          (body as { detail?: string }).detail ||
+            'Failed to save edited consultation',
+        )
+      }
+      setData((prev) =>
+        prev
+          ? {
+              ...prev,
+              summary: editSummary,
+              soap: {
+                ...(prev.soap || {}),
+                ...editSoap,
+              },
+            }
+          : prev,
+      )
+      setIsEditing(false)
+      toast.success('Updates saved')
+    } catch (err: any) {
+      setSaveError(err.message || 'Failed to save edited consultation')
+      toast.error(err.message || 'Failed to save edited consultation')
+    } finally {
+      setSaveLoading(false)
+    }
+  }
+
+  const handleSubmitVerification = async () => {
+    if (!data) return
+    try {
+      setVerifyLoading(true)
+      setVerifyError(null)
+      const res = await fetch(
+        `${API_BASE_URL}/consultations/${data.consultationID}/status`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            created_at: data.createdAt,
+            status: verifyStatus,
+            verifying_doctor: verifyingDoctor || data.doctorName || undefined,
+          }),
+        },
+      )
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        throw new Error(
+          (body as { detail?: string }).detail ||
+            'Failed to update verification status',
+        )
+      }
+      setData((prev) =>
+        prev
+          ? {
+              ...prev,
+              status: verifyStatus,
+              doctorName: verifyingDoctor || prev.doctorName,
+              verifiedBy: verifyingDoctor || prev.verifiedBy,
+            }
+          : prev,
+      )
+      setShowVerifyModal(false)
+    } catch (err: any) {
+      setVerifyError(err.message || 'Failed to update verification status')
+    } finally {
+      setVerifyLoading(false)
+    }
+  }
+
   return (
-    <div
-      className="min-h-screen overflow-hidden"
-      style={{ background: '#050A0F' }}
-    >
+    <div className="h-screen overflow-hidden" style={{ background: '#050A0F' }}>
       {/* Background Grid and Orbs (same theme as main dashboard) */}
       <div className="fixed inset-0 pointer-events-none z-0">
         <div
@@ -128,7 +311,7 @@ export default function ConsultationDetailPage() {
       `}</style>
 
       {/* Foreground layout */}
-      <div className="relative z-10 flex flex-col min-h-screen">
+      <div className="relative z-10 flex flex-col h-full">
         <div className="flex flex-1 overflow-hidden">
           <Sidebar
             selectedRecord={id || ''}
@@ -141,35 +324,71 @@ export default function ConsultationDetailPage() {
           >
             {/* Header */}
             <div
-              className="px-6 py-4 border-b flex items-center justify-between"
+              className="px-6 py-4 border-b flex items-center justify-between gap-4"
               style={{ borderColor: 'rgba(0,200,150,0.15)' }}
             >
-              <div>
-                <div className="text-lg font-bold" style={{ color: '#E8F4F0' }}>
+              <div className="min-w-0">
+                <div className="text-lg font-bold truncate" style={{ color: '#E8F4F0' }}>
                   {data?.patientName || 'Unknown patient'}
                 </div>
-                <div className="text-xs" style={{ color: '#5A7A6E' }}>
-                  {data?.doctorName && <>Doctor: {data.doctorName} | </>}
-                  {data?.patientDob && <>DOB: {data.patientDob} | </>}
-                  {createdDate && <>Created: {createdDate}</>}
+                <div
+                  className="text-xs flex flex-wrap gap-2 items-center"
+                  style={{ color: '#5A7A6E' }}
+                >
+                  {data?.doctorName && <>Doctor: {data.doctorName}</>}
+                  {data?.patientDob && (
+                    <>
+                      <span>|</span> <span>DOB: {data.patientDob}</span>
+                    </>
+                  )}
+                  {createdDate && (
+                    <>
+                      <span>|</span> <span>Created: {createdDate}</span>
+                    </>
+                  )}
+                  {data?.verifiedBy && (
+                    <>
+                      <span>|</span> <span>Verified by: {data.verifiedBy}</span>
+                    </>
+                  )}
                 </div>
               </div>
-              <button
-                className="px-4 py-2 rounded-full text-xs font-semibold border-none cursor-pointer"
-                style={{
-                  background: 'rgba(0,200,150,.12)',
-                  color: '#00C896',
-                  boxShadow: '0 0 14px rgba(0,200,150,.35)',
-                }}
-                onClick={() => router.push('/dashboard')}
-              >
-                ← Back to live view
-              </button>
+              <div className="flex items-center gap-3 shrink-0">
+                {statusStyle && (
+                  <span
+                    className="px-3 py-1 rounded-full text-[11px] font-semibold uppercase"
+                    style={{
+                      background: statusStyle.bg,
+                      color: statusStyle.color,
+                      letterSpacing: '0.8px',
+                    }}
+                  >
+                    {statusStyle.label}
+                  </span>
+                )}
+                <button
+                  className="px-4 py-2 rounded-full text-xs font-semibold border-none cursor-pointer"
+                  style={{
+                    background: 'rgba(0,200,150,.12)',
+                    color: '#00C896',
+                    boxShadow: '0 0 14px rgba(0,200,150,.35)',
+                  }}
+                  onClick={() => router.push('/dashboard')}
+                >
+                  ← Back to live view
+                </button>
+              </div>
             </div>
 
             {/* Content */}
-            <div className="flex-1 grid grid-cols-[minmax(0,2.2fr)_minmax(0,1.2fr)] gap-4 p-6 overflow-hidden">
-              <div className="flex flex-col gap-4 overflow-y-auto pr-1">
+            <div className="flex-1 grid grid-cols-[minmax(0,2.4fr)_minmax(0,1.3fr)] gap-4 p-6 overflow-hidden">
+              <div
+                className="flex flex-col gap-4 overflow-y-auto pr-1"
+                style={{
+                  scrollbarWidth: 'thin',
+                  scrollbarColor: 'rgba(0,200,150,0.5) transparent',
+                }}
+              >
                 {/* Summary */}
                 <div
                   className="rounded-xl p-4 border"
@@ -184,9 +403,24 @@ export default function ConsultationDetailPage() {
                   >
                     Clinical Summary
                   </div>
-                  <div className="text-sm" style={{ color: '#C5DDD5' }}>
-                    {data?.summary ? data.summary : 'No summary available.'}
-                  </div>
+                  {isEditing ? (
+                    <textarea
+                      value={editSummary}
+                      onChange={(e) => setEditSummary(e.target.value)}
+                      className="w-full mt-1 rounded border px-3 py-2 text-sm outline-none"
+                      style={{
+                        background: 'rgba(5,10,15,.9)',
+                        borderColor: 'rgba(0,200,150,0.25)',
+                        color: '#C5DDD5',
+                        resize: 'vertical',
+                        minHeight: '80px',
+                      }}
+                    />
+                  ) : (
+                    <div className="text-sm" style={{ color: '#C5DDD5' }}>
+                      {data?.summary ? data.summary : 'No summary available.'}
+                    </div>
+                  )}
                 </div>
 
                 {/* SOAP */}
@@ -221,6 +455,11 @@ export default function ConsultationDetailPage() {
                                 : key === 'assessment'
                                   ? 'A — Assessment'
                                   : 'P — Plan'
+                          const sectionKey = key as
+                            | 'subjective'
+                            | 'objective'
+                            | 'assessment'
+                            | 'plan'
                           return (
                             <div
                               key={key}
@@ -236,17 +475,37 @@ export default function ConsultationDetailPage() {
                               >
                                 {label}
                               </div>
-                              <div
-                                className="text-sm"
-                                style={{
-                                  color: '#C5DDD5',
-                                  whiteSpace: 'pre-wrap',
-                                }}
-                              >
-                                {typeof value === 'string'
-                                  ? value
-                                  : JSON.stringify(value, null, 2)}
-                              </div>
+                              {isEditing ? (
+                                <textarea
+                                  value={editSoap[sectionKey]}
+                                  onChange={(e) =>
+                                    setEditSoap((prev) => ({
+                                      ...prev,
+                                      [sectionKey]: e.target.value,
+                                    }))
+                                  }
+                                  className="w-full mt-1 rounded border px-3 py-2 text-sm outline-none"
+                                  style={{
+                                    background: 'rgba(5,10,15,.9)',
+                                    borderColor: 'rgba(0,200,150,0.25)',
+                                    color: '#C5DDD5',
+                                    resize: 'vertical',
+                                    minHeight: '70px',
+                                  }}
+                                />
+                              ) : (
+                                <div
+                                  className="text-sm"
+                                  style={{
+                                    color: '#C5DDD5',
+                                    whiteSpace: 'pre-wrap',
+                                  }}
+                                >
+                                  {typeof value === 'string'
+                                    ? value
+                                    : JSON.stringify(value, null, 2)}
+                                </div>
+                              )}
                             </div>
                           )
                         },
@@ -258,6 +517,53 @@ export default function ConsultationDetailPage() {
                     </div>
                   )}
                 </div>
+
+                {isEditing && (
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    {saveError && (
+                      <div
+                        className="text-xs px-3 py-1.5 rounded-lg"
+                        style={{
+                          background: 'rgba(255,77,109,0.14)',
+                          color: '#FFB3C3',
+                          border: '1px solid rgba(255,77,109,0.4)',
+                        }}
+                      >
+                        {saveError}
+                      </div>
+                    )}
+                    <div className="ml-auto flex gap-2">
+                      <button
+                        type="button"
+                        className="px-3 py-1.5 rounded-lg text-xs font-semibold border-none cursor-pointer"
+                        style={{
+                          background: 'rgba(255,255,255,.02)',
+                          color: '#5A7A6E',
+                          border: '1px solid rgba(0,200,150,0.15)',
+                        }}
+                        onClick={cancelEditing}
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleSaveEdits}
+                        disabled={saveLoading}
+                        className="px-4 py-1.5 rounded-lg text-xs font-bold border-none cursor-pointer"
+                        style={{
+                          background: saveLoading
+                            ? 'rgba(0,200,150,0.16)'
+                            : 'linear-gradient(135deg, #00C896, #00A875)',
+                          color: '#050A0F',
+                          boxShadow: '0 0 16px rgba(0,200,150,.4)',
+                          opacity: saveLoading ? 0.7 : 1,
+                        }}
+                      >
+                        {saveLoading ? 'Saving...' : 'Save changes'}
+                      </button>
+                    </div>
+                  </div>
+                )}
 
                 {/* Transcript */}
                 <div
@@ -273,7 +579,7 @@ export default function ConsultationDetailPage() {
                   >
                     Transcript
                   </div>
-                  <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
+                  <div className="space-y-2 pr-1">
                     {data?.transcript && data.transcript.length > 0 ? (
                       data.transcript.map((line, idx) => (
                         <div key={idx} className="flex gap-3">
@@ -317,6 +623,7 @@ export default function ConsultationDetailPage() {
                 diagnoses={data?.diagnoses || []}
                 entities={data?.entities || []}
                 isLoading={loading}
+                onVerifyAndSign={openVerifyModal}
               />
             </div>
 
@@ -342,6 +649,179 @@ export default function ConsultationDetailPage() {
                 }}
               >
                 {error}
+              </div>
+            )}
+
+            {showVerifyModal && (
+              <div
+                className="absolute inset-0 flex items-center justify-center px-4"
+                style={{
+                  background: 'rgba(5,10,15,0.75)',
+                  backdropFilter: 'blur(6px)',
+                }}
+              >
+                <div
+                  className="w-full max-w-md rounded-2xl p-5 border relative"
+                  style={{
+                    background: 'rgba(12,21,32,0.98)',
+                    borderColor: 'rgba(0,200,150,0.2)',
+                    boxShadow: '0 18px 60px rgba(0,0,0,0.5)',
+                  }}
+                >
+                  <div className="flex items-start justify-between mb-3">
+                    <div>
+                      <div
+                        className="text-xs uppercase mb-1"
+                        style={{ color: '#5A7A6E', letterSpacing: '1.6px' }}
+                      >
+                        Verify & Sign
+                      </div>
+                      <div
+                        className="text-sm font-semibold"
+                        style={{ color: '#E8F4F0' }}
+                      >
+                        {data?.patientName || 'Unknown patient'}
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => setShowVerifyModal(false)}
+                      className="text-xs border-none cursor-pointer"
+                      style={{ color: '#5A7A6E' }}
+                    >
+                      ✕
+                    </button>
+                  </div>
+
+                  <div className="space-y-3 mb-3">
+                    <div>
+                      <label
+                        className="block text-[10px] uppercase mb-1"
+                        style={{ color: '#5A7A6E', letterSpacing: '1px' }}
+                      >
+                        Verifying doctor name
+                      </label>
+                      <input
+                        type="text"
+                        value={verifyingDoctor}
+                        onChange={(e) => setVerifyingDoctor(e.target.value)}
+                        placeholder="Dr. Name"
+                        className="w-full px-3 py-1.5 rounded border text-xs outline-none"
+                        style={{
+                          background: 'rgba(255,255,255,.03)',
+                          borderColor: 'rgba(0,200,150,0.2)',
+                          color: '#E8F4F0',
+                        }}
+                      />
+                    </div>
+
+                    <div>
+                      <div
+                        className="text-[10px] uppercase mb-2"
+                        style={{ color: '#5A7A6E', letterSpacing: '1px' }}
+                      >
+                        Verification decision
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setVerifyStatus('verified')}
+                          className="flex-1 px-3 py-2 rounded-lg text-xs font-semibold border-none cursor-pointer"
+                          style={{
+                            background:
+                              verifyStatus === 'verified'
+                                ? 'rgba(0,200,150,.18)'
+                                : 'rgba(255,255,255,.02)',
+                            color:
+                              verifyStatus === 'verified'
+                                ? '#00C896'
+                                : '#5A7A6E',
+                            border: '1px solid rgba(0,200,150,0.25)',
+                          }}
+                        >
+                          ✓ Verified
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setVerifyStatus('not_verified')}
+                          className="flex-1 px-3 py-2 rounded-lg text-xs font-semibold border-none cursor-pointer"
+                          style={{
+                            background:
+                              verifyStatus === 'not_verified'
+                                ? 'rgba(255,149,0,.18)'
+                                : 'rgba(255,255,255,.02)',
+                            color:
+                              verifyStatus === 'not_verified'
+                                ? '#FF9500'
+                                : '#5A7A6E',
+                            border: '1px solid rgba(255,149,0,0.35)',
+                          }}
+                        >
+                          ✎ Needs edit
+                        </button>
+                      </div>
+                    </div>
+
+                    <div
+                      className="text-[11px]"
+                      style={{ color: '#5A7A6E', lineHeight: 1.5 }}
+                    >
+                      Choosing <strong>Needs edit</strong> will mark this consultation as
+                      not verified so you can go back and adjust the notes before
+                      approving.
+                    </div>
+
+                    {verifyError && (
+                      <div
+                        className="text-xs px-3 py-2 rounded-lg"
+                        style={{
+                          background: 'rgba(255,77,109,0.14)',
+                          color: '#FFB3C3',
+                          border: '1px solid rgba(255,77,109,0.4)',
+                        }}
+                      >
+                        {verifyError}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex items-center justify-between gap-3">
+                    <button
+                      type="button"
+                      className="px-3 py-2 rounded-lg text-xs font-semibold border-none cursor-pointer"
+                      style={{
+                        background: 'rgba(255,255,255,.02)',
+                        color: '#5A7A6E',
+                        border: '1px solid rgba(0,200,150,0.15)',
+                      }}
+                      onClick={() => {
+                        setShowVerifyModal(false)
+                        startEditing()
+                      }}
+                    >
+                      Edit note
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleSubmitVerification}
+                      disabled={verifyLoading}
+                      className="flex-1 px-4 py-2 rounded-lg text-xs font-bold border-none cursor-pointer"
+                      style={{
+                        background: verifyLoading
+                          ? 'rgba(0,200,150,0.16)'
+                          : 'linear-gradient(135deg, #00C896, #00A875)',
+                        color: '#050A0F',
+                        boxShadow: '0 0 20px rgba(0,200,150,.4)',
+                        opacity: verifyLoading ? 0.7 : 1,
+                      }}
+                    >
+                      {verifyLoading
+                        ? 'Saving verification...'
+                        : verifyStatus === 'verified'
+                          ? 'Submit as Verified'
+                          : 'Submit as Not Verified'}
+                    </button>
+                  </div>
+                </div>
               </div>
             )}
           </div>

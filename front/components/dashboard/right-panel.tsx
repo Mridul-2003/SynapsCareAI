@@ -29,6 +29,7 @@ interface RightPanelProps {
   entities?: Entity[];
   alerts?: Alert[];
   isLoading?: boolean;
+  onVerifyAndSign?: () => void;
 }
 
 // Entity type → color mapping
@@ -84,6 +85,7 @@ export default function RightPanel({
   entities = [],
   alerts = DEFAULT_ALERTS,
   isLoading = false,
+  onVerifyAndSign,
 }: RightPanelProps) {
   const [selectedICDs, setSelectedICDs] = useState<string[]>([]);
 
@@ -95,7 +97,7 @@ export default function RightPanel({
 
   return (
     <div
-      className="w-64 border-l flex flex-col overflow-hidden"
+      className="border-l flex flex-col overflow-hidden min-w-[18rem]"
       style={{
         borderColor: "rgba(0,200,150,0.15)",
         background: "rgba(12,21,32,.6)",
@@ -299,6 +301,7 @@ export default function RightPanel({
             color: "#050A0F",
             boxShadow: "0 0 18px rgba(0,200,150,.3)",
           }}
+          type="button"
           onMouseEnter={(e) => {
             e.currentTarget.style.boxShadow = "0 0 28px rgba(0,200,150,.5)";
             e.currentTarget.style.transform = "translateY(-2px)";
@@ -307,6 +310,7 @@ export default function RightPanel({
             e.currentTarget.style.boxShadow = "0 0 18px rgba(0,200,150,.3)";
             e.currentTarget.style.transform = "translateY(0)";
           }}
+          onClick={() => onVerifyAndSign && onVerifyAndSign()}
         >
           ✓ VERIFY & SIGN
         </button>

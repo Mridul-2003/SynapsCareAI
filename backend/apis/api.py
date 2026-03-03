@@ -8,6 +8,7 @@ from decimal import Decimal
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+from typing import Any
 from amazon_transcribe.client import TranscribeStreamingClient
 from amazon_transcribe.handlers import TranscriptResultStreamHandler
 from amazon_transcribe.model import TranscriptEvent
@@ -181,6 +182,7 @@ class ConsultationMetadata(BaseModel):
     summary: str | None = None
     diagnoses: list[dict] | None = None
     entities: list[dict] | None = None
+    status: str | None = None
 
 
 @app.post("/consultations/{consultation_id}/metadata")
@@ -192,6 +194,7 @@ async def update_consultation_metadata(consultation_id: str, payload: Consultati
         soap_val = _to_dynamo_compatible(payload.soap or {})
         diag_val = _to_dynamo_compatible(payload.diagnoses or [])
         entities_val = _to_dynamo_compatible(payload.entities or [])
+        status_val = payload.status or "complete"
 
         resp = table.update_item(
             Key={
@@ -227,7 +230,7 @@ async def update_consultation_metadata(consultation_id: str, payload: Consultati
                 ":summary": payload.summary or "",
                 ":diag": diag_val,
                 ":entities": entities_val,
-                ":status": "completed",
+                ":status": status_val,
             },
             ReturnValues="UPDATED_NEW",
         )
@@ -235,6 +238,47 @@ async def update_consultation_metadata(consultation_id: str, payload: Consultati
     except Exception as e:
         print("DynamoDB update error:", repr(e))
         raise HTTPException(status_code=500, detail="Failed to update consultation metadata")
+
+    return {"status": "ok"}
+
+
+class ConsultationStatusUpdate(BaseModel):
+    created_at: str
+    status: str
+    verifying_doctor: str | None = None
+
+
+@app.post("/consultations/{consultation_id}/status")
+async def update_consultation_status(consultation_id: str, payload: ConsultationStatusUpdate):
+    """
+    Lightweight endpoint used by the UI to flip a consultation's status
+    (e.g. draft/complete/verified/not_verified) and optionally capture
+    the verifying doctor's name.
+    """
+    update_expr = "SET #status = :status"
+    expr_names = {"#status": "status"}
+    expr_values: dict[str, Any] = {":status": payload.status}
+
+    if payload.verifying_doctor is not None:
+        update_expr += ", #verifiedBy = :verifiedBy"
+        expr_names["#verifiedBy"] = "verifiedBy"
+        expr_values[":verifiedBy"] = payload.verifying_doctor
+
+    try:
+        resp = table.update_item(
+            Key={
+                "consultationID": consultation_id,
+                "createdAt": payload.created_at,
+            },
+            UpdateExpression=update_expr,
+            ExpressionAttributeNames=expr_names,
+            ExpressionAttributeValues=_to_dynamo_compatible(expr_values),
+            ReturnValues="UPDATED_NEW",
+        )
+        print("DynamoDB status update:", resp.get("Attributes", {}))
+    except Exception as e:
+        print("DynamoDB status update error:", repr(e))
+        raise HTTPException(status_code=500, detail="Failed to update consultation status")
 
     return {"status": "ok"}
 
@@ -267,6 +311,7 @@ async def get_consultation(consultation_id: str):
         "patientName": item.get("patientName", "Unknown patient"),
         "doctorName": item.get("doctorName", ""),
         "patientDob": item.get("patientDob", ""),
+        "verifiedBy": item.get("verifiedBy", ""),
         "transcript": item.get("transcript", []),
         "soap": item.get("soap", {}),
         "summary": item.get("summary", ""),
@@ -344,8 +389,9 @@ async def list_records(limit: int = 50):
             date_str = ""
             time_str = ""
 
-        raw_status = item.get("status", "completed")
-        status = "complete" if raw_status == "completed" else raw_status
+        raw_status = item.get("status", "complete")
+        # Older records used "completed"; normalise to "complete"
+        status = "complete" if raw_status in ("completed", "complete") else raw_status
 
         records.append(
             {
