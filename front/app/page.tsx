@@ -1,17 +1,19 @@
-'use client'
+"use client";
 
-import { useState } from 'react'
-import TopBar from '@/components/topbar'
-import Dashboard from '@/components/dashboard'
-import Analytics from '@/components/analytics'
-import Records from '@/components/records'
-import Settings from '@/components/settings'
+import { useState } from "react";
+import TopBar from "@/components/topbar";
+import Dashboard from "@/components/dashboard";
+import Records from "@/components/records";
+import ComingSoonPage from "@/components/comingSoon";
 
 export default function Home() {
-  const [currentPage, setCurrentPage] = useState('dashboard')
+  const [currentPage, setCurrentPage] = useState("dashboard");
 
   return (
-    <div className="min-h-screen overflow-hidden" style={{ background: '#050A0F' }}>
+    <div
+      className="min-h-screen overflow-hidden"
+      style={{ background: "#050A0F" }}
+    >
       {/* Background Grid and Orbs */}
       <div className="fixed inset-0 pointer-events-none z-0">
         <div
@@ -21,38 +23,41 @@ export default function Home() {
               linear-gradient(rgba(0,200,150,0.04) 1px, transparent 1px),
               linear-gradient(90deg, rgba(0,200,150,0.04) 1px, transparent 1px)
             `,
-            backgroundSize: '40px 40px',
+            backgroundSize: "40px 40px",
           }}
         />
+
         {/* Orb 1 */}
         <div
-          className="absolute w-96 h-96 rounded-full blur-3xl opacity-12 pointer-events-none"
+          className="absolute w-96 h-96 rounded-full blur-3xl opacity-12"
           style={{
-            background: '#00C896',
-            top: '-200px',
-            left: '-150px',
-            animation: 'driftA 18s ease-in-out infinite',
+            background: "#00C896",
+            top: "-200px",
+            left: "-150px",
+            animation: "driftA 18s ease-in-out infinite",
           }}
         />
+
         {/* Orb 2 */}
         <div
-          className="absolute w-80 h-80 rounded-full blur-3xl opacity-12 pointer-events-none"
+          className="absolute w-80 h-80 rounded-full blur-3xl opacity-12"
           style={{
-            background: '#00A3FF',
-            bottom: '-100px',
-            right: '-100px',
-            animation: 'driftB 22s ease-in-out infinite',
+            background: "#00A3FF",
+            bottom: "-100px",
+            right: "-100px",
+            animation: "driftB 22s ease-in-out infinite",
           }}
         />
+
         {/* Orb 3 */}
         <div
-          className="absolute w-72 h-72 rounded-full blur-3xl opacity-12 pointer-events-none"
+          className="absolute w-72 h-72 rounded-full blur-3xl opacity-12"
           style={{
-            background: '#7B61FF',
-            top: '40%',
-            left: '50%',
-            transform: 'translate(-50%, -50%)',
-            animation: 'driftC 15s ease-in-out infinite',
+            background: "#7B61FF",
+            top: "40%",
+            left: "50%",
+            transform: "translate(-50%, -50%)",
+            animation: "driftC 15s ease-in-out infinite",
           }}
         />
       </div>
@@ -78,11 +83,13 @@ export default function Home() {
         <TopBar currentPage={currentPage} setCurrentPage={setCurrentPage} />
 
         {/* Page Content */}
-        {currentPage === 'dashboard' && <Dashboard />}
-        {currentPage === 'analytics' && <Analytics />}
-        {currentPage === 'records' && <Records />}
-        {currentPage === 'settings' && <Settings />}
+        <div className="flex-1 flex">
+          {currentPage === "dashboard" && <Dashboard />}
+          {currentPage === "records" && <Records />}
+          {currentPage === "analytics" && <ComingSoonPage title="Analytics" />}
+          {currentPage === "settings" && <ComingSoonPage title="Settings" />}
+        </div>
       </div>
     </div>
-  )
+  );
 }

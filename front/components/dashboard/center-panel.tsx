@@ -25,8 +25,7 @@ interface SOAPNote {
   [key: string]: string | undefined;
 }
 
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 export default function CenterPanel({
   selectedRecord,
@@ -534,7 +533,7 @@ export default function CenterPanel({
             </div>
           </div>
           <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-2 items-end">
-            <div className="max-w-[180px]">
+            <div className="max-w-45">
               <label
                 className="block text-[10px] uppercase mb-1"
                 style={{ color: "#5A7A6E", letterSpacing: "1px" }}
