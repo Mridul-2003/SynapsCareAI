@@ -1,6 +1,7 @@
 import boto3
 import os
 from dotenv import load_dotenv
+from datetime import datetime
 load_dotenv()
 
 AWS_ACCESS_KEY = os.getenv("AWS_ACCESS_KEY")
@@ -26,15 +27,21 @@ def get_transcript_data(consultation_id: str, created_at: str) -> str:
     )
     
     item = response.get('Item')
-    
+    print(f"DynamoDB response item: {item}")
     if item is None:
         print("❌ Item not found in DynamoDB")
         raise ValueError(f"No record found for consultationID={consultation_id}, createdAt={created_at}")
     
     transcript_list = item.get("transcript")
+    start_time = datetime.strptime(transcript_list[0].get('timestamp'), "%Y-%m-%dT%H:%M:%S.%f")
+    end_time = datetime.strptime(transcript_list[-1].get('timestamp'), "%Y-%m-%dT%H:%M:%S.%f")
+    duration_seconds = (end_time - start_time).total_seconds()
     final_transcript = ""
     for transcript in transcript_list:
         final_transcript += transcript.get("text")
         final_transcript += "\n"
-    return final_transcript
+    return final_transcript,duration_seconds
+
+
+
 

@@ -10,7 +10,7 @@ async def generate_soap_notes(req: SoapNotesRequest):
     created_at = req.created_at
 
     try:
-        transcript = get_transcript_data(consultation_id, created_at)
+        transcript,total_duration = get_transcript_data(consultation_id, created_at)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
 
@@ -56,6 +56,7 @@ async def generate_soap_notes(req: SoapNotesRequest):
     return {
         "status": "success",
         "soap": soap,
+        "total_duration": total_duration,
         "summary": summary or None,
         "entities": result.get("entities", []) if isinstance(result, dict) else [],
         "diagnoses": result.get("diagnoses", []) if isinstance(result, dict) else [],
