@@ -93,6 +93,7 @@ export default function CenterPanel({
       setSoapNote(null);
       setSoapError(null);
       setSummary(null);
+      setDuration(0); // ← reset duration on new recording
 
       const socket = io("http://localhost:8000", { transports: ["websocket"] });
       socketRef.current = socket;
@@ -100,7 +101,6 @@ export default function CenterPanel({
       socket.on("connect", () => console.log("Socket connected"));
       socket.on("recording_started", () => console.log("Recording started"));
 
-      // ✅ consultation_saved — IDs store karo
       socket.on(
         "consultation_saved",
         (data: { consultation_id: string; created_at: string }) => {
@@ -164,9 +164,6 @@ export default function CenterPanel({
     if (socket?.connected) {
       socket.emit("stop_recording");
 
-      // ✅ FIX: consultation_saved already aa chuka — directly wait karo aur generate karo
-      // Agar IDs already hain toh turant generate karo
-      // Agar nahi hain toh thoda wait karo (DynamoDB save hone ka time)
       const tryGenerate = (attempts = 0) => {
         if (consultationIdRef.current && createdAtRef.current) {
           console.log("✅ IDs ready, generating SOAP...");
@@ -174,7 +171,6 @@ export default function CenterPanel({
           onTabChange("soap");
           generateSOAP();
         } else if (attempts < 10) {
-          // 500ms intervals mein max 5 seconds tak wait karo
           console.log(
             `⏳ Waiting for consultation_saved... attempt ${attempts + 1}`,
           );
@@ -186,10 +182,8 @@ export default function CenterPanel({
         }
       };
 
-      // Pehle stop event send ho jaye, phir check karo
       setTimeout(() => tryGenerate(), 300);
     } else {
-      // Socket pehle se band — agar IDs hain toh generate karo
       if (consultationIdRef.current && createdAtRef.current) {
         onTabChange("soap");
         generateSOAP();
@@ -225,9 +219,19 @@ export default function CenterPanel({
     summary: string | null;
     diagnoses: any[];
     entities: any[];
+    totalDuration: number; // ← ADDED
+    soapConfidence: Record<string, number>; // ← ADDED
   }) {
-    const { consultationId, createdAt, soap, summary, diagnoses, entities } =
-      args;
+    const {
+      consultationId,
+      createdAt,
+      soap,
+      summary,
+      diagnoses,
+      entities,
+      totalDuration, // ← ADDED
+      soapConfidence, // ← ADDED
+    } = args;
 
     if (!consultationId || !createdAt) return;
 
@@ -246,6 +250,8 @@ export default function CenterPanel({
             summary,
             diagnoses,
             entities,
+            total_duration: totalDuration, // ← ADDED
+            soap_confidence: soapConfidence, // ← ADDED
           }),
         },
       );
@@ -312,21 +318,20 @@ export default function CenterPanel({
         return;
       }
 
-      // ✅ Full API response console karo
       console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
       console.log("📦 Full API Response:", data);
       console.log("📋 SOAP:", data.soap);
       console.log("📝 Summary:", data.summary);
       console.log("🏷️  Entities:", data.entities);
       console.log("🩺 Diagnoses:", data.diagnoses);
+      console.log("⏱️  Total Duration:", data.total_duration); // ← ADDED
+      console.log("📊 SOAP Confidence:", data.soap_confidence); // ← ADDED
       console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 
-      // ✅ SOAP note set karo
       const soapData: SOAPNote = data.soap ?? {};
       setSoapNote(soapData);
       setSummary(data.summary ?? null);
 
-      // ✅ RightPanel ko diagnoses + entities bhejo
       if (onSoapGenerated) {
         console.log("✅ onSoapGenerated callback firing with:", {
           diagnoses: data.diagnoses ?? [],
@@ -347,6 +352,8 @@ export default function CenterPanel({
         summary: data.summary ?? null,
         diagnoses: data.diagnoses ?? [],
         entities: data.entities ?? [],
+        totalDuration: data.total_duration ?? duration, // ← ADDED: API se aaya ya fallback timer se
+        soapConfidence: data.soap_confidence ?? {}, // ← ADDED
       });
 
       resetForNewConsultation();

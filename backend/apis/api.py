@@ -183,6 +183,8 @@ class ConsultationMetadata(BaseModel):
     diagnoses: list[dict] | None = None
     entities: list[dict] | None = None
     status: str | None = None
+    total_duration: float | None = None      # ← ADDED
+    soap_confidence: dict | None = None      # ← ADDED
 
 
 @app.post("/consultations/{consultation_id}/metadata")
@@ -195,6 +197,8 @@ async def update_consultation_metadata(consultation_id: str, payload: Consultati
         diag_val = _to_dynamo_compatible(payload.diagnoses or [])
         entities_val = _to_dynamo_compatible(payload.entities or [])
         status_val = payload.status or "complete"
+        duration_val = _to_dynamo_compatible(payload.total_duration or 0)          # ← ADDED
+        soap_confidence_val = _to_dynamo_compatible(payload.soap_confidence or {}) # ← ADDED
 
         resp = table.update_item(
             Key={
@@ -210,7 +214,9 @@ async def update_consultation_metadata(consultation_id: str, payload: Consultati
                 "#summary = :summary, "
                 "#diag = :diag, "
                 "#entities = :entities, "
-                "#status = :status"
+                "#status = :status, "
+                "#duration = :duration, "          # ← ADDED
+                "#soapConf = :soapConf"             # ← ADDED
             ),
             ExpressionAttributeNames={
                 "#pn": "patientName",
@@ -221,6 +227,8 @@ async def update_consultation_metadata(consultation_id: str, payload: Consultati
                 "#diag": "diagnoses",
                 "#entities": "entities",
                 "#status": "status",
+                "#duration": "duration",            # ← ADDED
+                "#soapConf": "soapConfidence",      # ← ADDED
             },
             ExpressionAttributeValues={
                 ":pn": payload.patient_name,
@@ -231,6 +239,8 @@ async def update_consultation_metadata(consultation_id: str, payload: Consultati
                 ":diag": diag_val,
                 ":entities": entities_val,
                 ":status": status_val,
+                ":duration": duration_val,          # ← ADDED
+                ":soapConf": soap_confidence_val,   # ← ADDED
             },
             ReturnValues="UPDATED_NEW",
         )
@@ -317,8 +327,9 @@ async def get_consultation(consultation_id: str):
         "summary": item.get("summary", ""),
         "diagnoses": item.get("diagnoses", []),
         "entities": item.get("entities", []),
+        "duration": item.get("duration", None),              # ← ADDED
+        "soapConfidence": item.get("soapConfidence", {}),    # ← ADDED
     }
-
 
 
 @app.delete("/records/{consultation_id}")
@@ -400,8 +411,9 @@ async def list_records(limit: int = 50):
                 "date": date_str,
                 "time": time_str,
                 "status": status,
-                "duration": item.get("duration", ""),
+                "duration": item.get("duration", ""),  # already stored as Decimal/float
                 "confidence": item.get("confidence", "—"),
+                "soapConfidence": item.get("soapConfidence", {}),  
             }
         )
 

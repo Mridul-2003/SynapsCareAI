@@ -4,13 +4,14 @@ from services.fetch_data import get_transcript_data
 from services.schema import SoapNotesRequest
 
 router = APIRouter()
+
 @router.post("/generate_soap_notes")
 async def generate_soap_notes(req: SoapNotesRequest):
     consultation_id = req.consultation_id
     created_at = req.created_at
 
     try:
-        transcript,total_duration = get_transcript_data(consultation_id, created_at)
+        transcript, total_duration = get_transcript_data(consultation_id, created_at)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
 
@@ -22,7 +23,6 @@ async def generate_soap_notes(req: SoapNotesRequest):
             detail = "Unable to connect to AWS Bedrock. Please check your internet/VPN connection or ensure firewall access is allowed for: bedrock-runtime.us-east-1.amazonaws.com"
         else:
             detail = f"SOAP generate fail: {err_msg}"
-        # Return 200 with error so frontend can show message (no 503 in UI)
         return {
             "status": "error",
             "error": detail,
@@ -35,12 +35,13 @@ async def generate_soap_notes(req: SoapNotesRequest):
             "summary": None,
             "entities": [],
             "diagnoses": [],
+            "soap_confidence": {},  
+            "total_duration": total_duration,
         }
 
     soap_raw = result.get("soap") if isinstance(result, dict) else {}
     if not soap_raw:
         soap_raw = {}
-    # Normalize keys to lowercase (model may return "Subjective", "Objective", etc.)
     soap = {}
     for key in ("subjective", "objective", "assessment", "plan"):
         val = soap_raw.get(key) or soap_raw.get(key.capitalize())
@@ -52,13 +53,17 @@ async def generate_soap_notes(req: SoapNotesRequest):
     summary = result.get("summary") if isinstance(result, dict) else None
     if summary and not isinstance(summary, str):
         summary = str(summary)
+    soap_confidence = result.get("soap_confidence") if isinstance(result, dict) else {}
+    if not isinstance(soap_confidence, dict):
+        soap_confidence = {}
 
     return {
         "status": "success",
         "soap": soap,
         "soap_confidence": result.get("soap_confidence", {}) if isinstance(result, dict) else {},
-        "total_duration": total_duration,
+        "total_duration": total_duration,  
         "summary": summary or None,
         "entities": result.get("entities", []) if isinstance(result, dict) else [],
         "diagnoses": result.get("diagnoses", []) if isinstance(result, dict) else [],
+        "soap_confidence": soap_confidence,     
     }

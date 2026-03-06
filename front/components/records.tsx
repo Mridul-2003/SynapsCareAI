@@ -11,6 +11,12 @@ type RecordItem = {
   status: string;
   duration: string;
   confidence: string;
+  soapConfidence?: {
+    subjective?: number;
+    objective?: number;
+    assessment?: number;
+    plan?: number;
+  };
 };
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
@@ -191,7 +197,14 @@ export default function Records() {
                 <span>Duration: {record.duration}</span>
                 <span>
                   Confidence:{" "}
-                  <span style={{ color: "#00C896" }}>{record.confidence}</span>
+                  {record.soapConfidence?.subjective !== undefined && (
+                    <span>
+                      Subjective Confidence:{" "}
+                      <span style={{ color: "#00C896" }}>
+                        {(record.soapConfidence.subjective * 100).toFixed(0)}%
+                      </span>
+                    </span>
+                  )}
                 </span>
 
                 <span
