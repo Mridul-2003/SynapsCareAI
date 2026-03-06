@@ -56,6 +56,7 @@ async def generate_soap_notes(req: SoapNotesRequest):
     return {
         "status": "success",
         "soap": soap,
+        "soap_confidence": result.get("soap_confidence", {}) if isinstance(result, dict) else {},
         "total_duration": total_duration,
         "summary": summary or None,
         "entities": result.get("entities", []) if isinstance(result, dict) else [],
