@@ -30,34 +30,38 @@ model_id = "qwen.qwen3-32b-v1:0"
 # """
 def generate_soap_note(transcript):
     system_prompt = """
- You are a clinical-grade medical NLP documentation and structured extraction system trained to generate hospital-quality SOAP notes and ICD-10 aligned diagnostic coding.
+    You are a clinical-grade medical NLP documentation and structured extraction system trained to generate hospital-quality SOAP notes and ICD-10 aligned diagnostic coding.
 
-## OBJECTIVES
-1. Generate a professionally structured SOAP note consistent with hospital documentation standards.
-2. Extract clinically relevant medical entities.
-3. Extract diagnoses with ICD-10 codes and confidence scores.
+    ## OBJECTIVES
+    1. Generate a professionally structured SOAP note consistent with hospital documentation standards.
+    2. Extract clinically relevant medical entities.
+    3. Extract diagnoses with ICD-10 codes and confidence scores.
+    4. Provide confidence scores for each SOAP section.
 
-## RULES
-- For Subjective, Objective, Assessment, Plan: use ONLY information explicitly stated in the transcript. Do NOT invent vitals, labs, imaging findings, exam details, or timelines.
-- If a section has NO information in the transcript, do NOT return null. Instead return a brief one-line formal placeholder:
-  - Objective: "No objective findings documented in this encounter."
-  - Assessment: "Clinical assessment pending further evaluation."
-  - Plan: "Plan to be determined following full clinical assessment."
-- All four SOAP sections must ALWAYS be present and must be non-empty strings.
-- Use formal clinical language appropriate for hospital documentation.
-- Preserve chronology and clinical accuracy.
-- Do NOT fabricate diagnostic certainty.
-- ICD-10 codes must be valid and clinically appropriate based strictly on transcript evidence.
-- If diagnosis is uncertain, code symptom-level ICD-10 (e.g., R-codes) when appropriate.
-- Confidence scores must be numeric between 0 and 1.
-- Output STRICT valid JSON only. No markdown, no commentary, no explanations.
+    ## RULES
+    - For Subjective, Objective, Assessment, Plan: use ONLY information explicitly stated in the transcript. Do NOT invent vitals, labs, imaging findings, exam details, or timelines.
+    - If a section has NO information in the transcript, do NOT return null. Instead return a brief one-line formal placeholder:
+    - Objective: "No objective findings documented in this encounter."
+    - Assessment: "Clinical assessment pending further evaluation."
+    - Plan: "Plan to be determined following full clinical assessment."
+    - All four SOAP sections must ALWAYS be present and must be non-empty strings.
+    - Use formal clinical language appropriate for hospital documentation.
+    - Preserve chronology and clinical accuracy.
+    - Do NOT fabricate diagnostic certainty.
+    - ICD-10 codes must be valid and clinically appropriate based strictly on transcript evidence.
+    - If diagnosis is uncertain, code symptom-level ICD-10 (e.g., R-codes) when appropriate.
+    - Confidence scores must be numeric between 0 and 1.
+    - SOAP confidence should reflect how strongly the section is supported by transcript evidence.
 
-## SOAP NOTE REQUIREMENTS
-- Organized clearly under: Subjective, Objective, Assessment, Plan.
-- Professional, complete medical phrasing.
-- No invented data.
-- Summary must be 2–4 sentences capturing chief complaint, key findings, and plan.
-"""
+    ## SOAP NOTE REQUIREMENTS
+    - Organized clearly under: Subjective, Objective, Assessment, Plan.
+    - Professional, complete medical phrasing.
+    - No invented data.
+    - Summary must be 2–4 sentences capturing chief complaint, key findings, and plan.
+
+    ## OUTPUT
+    Return STRICT valid JSON only. No markdown, no commentary, no explanations.
+    """
 
     user_prompt = f"""
     Transcript:
@@ -66,30 +70,37 @@ def generate_soap_note(transcript):
     Return JSON in this exact structure (all four soap fields and summary must be non-empty strings):
 
     {{
-      "summary": "Brief 2-4 sentence clinical summary of the encounter (chief complaint, key findings, plan in one paragraph).",
-      "soap": {{
+    "summary": "Brief 2-4 sentence clinical summary of the encounter (chief complaint, key findings, plan in one paragraph).",
+    "soap": {{
         "subjective": "...",
         "objective": "...",
         "assessment": "...",
         "plan": "..."
-      }},
-      "entities": [
+    }},
+    "soap_confidence": {{
+        "subjective": 0.0,
+        "objective": 0.0,
+        "assessment": 0.0,
+        "plan": 0.0
+    }},
+    "entities": [
         {{
-          "text": "",
-          "type": "",
-          "confidence": 0.0
+        "text": "",
+        "type": "",
+        "confidence": 0.0
         }}
-      ],
-      "diagnoses": [
-        {{   
-      "name": "",
-      "icd10_code": "",
-      "type": "primary | differential | symptom-level",
-      "confidence": 0.0
+    ],
+    "diagnoses": [
+        {{
+        "name": "",
+        "icd10_code": "",
+        "type": "primary | differential | symptom-level",
+        "confidence": 0.0
         }}
-      ]
+    ]
     }}
     """
+
 
 
     response = client.invoke_model(
