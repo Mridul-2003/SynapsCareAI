@@ -25,7 +25,7 @@ interface SOAPNote {
   [key: string]: string | undefined;
 }
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
 
 export default function CenterPanel({
   selectedRecord,
@@ -95,7 +95,9 @@ export default function CenterPanel({
       setSummary(null);
       setDuration(0); // ← reset duration on new recording
 
-      const socket = io("http://localhost:8000", { transports: ["websocket"] });
+      const socket = io(process.env.NEXT_PUBLIC_API_URL as string, {
+        transports: ["websocket"],
+      });
       socketRef.current = socket;
 
       socket.on("connect", () => console.log("Socket connected"));
@@ -291,7 +293,7 @@ export default function CenterPanel({
 
     try {
       const response = await fetch(
-        "http://localhost:8001/generate_soap_notes",
+        `${process.env.NEXT_PUBLIC_SOAP_API_URL}/generate_soap_notes`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -324,8 +326,8 @@ export default function CenterPanel({
       console.log("📝 Summary:", data.summary);
       console.log("🏷️  Entities:", data.entities);
       console.log("🩺 Diagnoses:", data.diagnoses);
-      console.log("⏱️  Total Duration:", data.total_duration); // ← ADDED
-      console.log("📊 SOAP Confidence:", data.soap_confidence); // ← ADDED
+      console.log("⏱️  Total Duration:", data.total_duration);
+      console.log("📊 SOAP Confidence:", data.soap_confidence);
       console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 
       const soapData: SOAPNote = data.soap ?? {};

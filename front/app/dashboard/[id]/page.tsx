@@ -1,177 +1,178 @@
-'use client'
+"use client";
 
-import { useEffect, useState } from 'react'
-import { useParams, useRouter } from 'next/navigation'
-import Sidebar from '@/components/dashboard/sidebar'
-import RightPanel from '@/components/dashboard/right-panel'
-import { toast } from 'sonner'
+import { useEffect, useState } from "react";
+import { useParams, useRouter } from "next/navigation";
+import Sidebar from "@/components/dashboard/sidebar";
+import RightPanel from "@/components/dashboard/right-panel";
+import { toast } from "sonner";
 
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
 
 type TranscriptEntry = {
-  timestamp: string
-  text: string
-  speaker?: string
-}
+  timestamp: string;
+  text: string;
+  speaker?: string;
+};
 
 type Consultation = {
-  consultationID: string
-  createdAt: string
-  status: string
-  patientName: string
-  doctorName: string
-  patientDob: string
-  verifiedBy?: string
-  transcript: TranscriptEntry[]
-  soap: Record<string, any>
-  summary: string
-  diagnoses: any[]
-  entities: any[]
-}
+  consultationID: string;
+  createdAt: string;
+  status: string;
+  patientName: string;
+  doctorName: string;
+  patientDob: string;
+  verifiedBy?: string;
+  transcript: TranscriptEntry[];
+  soap: Record<string, any>;
+  summary: string;
+  diagnoses: any[];
+  entities: any[];
+};
 
 export default function ConsultationDetailPage() {
-  const params = useParams<{ id: string }>()
-  const router = useRouter()
-  const id = params?.id
+  const params = useParams<{ id: string }>();
+  const router = useRouter();
+  const id = params?.id;
 
-  const [data, setData] = useState<Consultation | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [data, setData] = useState<Consultation | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const [showVerifyModal, setShowVerifyModal] = useState(false)
-  const [verifyingDoctor, setVerifyingDoctor] = useState('')
-  const [verifyStatus, setVerifyStatus] = useState<'verified' | 'not_verified'>(
-    'verified',
-  )
-  const [verifyLoading, setVerifyLoading] = useState(false)
-  const [verifyError, setVerifyError] = useState<string | null>(null)
+  const [showVerifyModal, setShowVerifyModal] = useState(false);
+  const [verifyingDoctor, setVerifyingDoctor] = useState("");
+  const [verifyStatus, setVerifyStatus] = useState<"verified" | "not_verified">(
+    "verified",
+  );
+  const [verifyLoading, setVerifyLoading] = useState(false);
+  const [verifyError, setVerifyError] = useState<string | null>(null);
 
-  const [isEditing, setIsEditing] = useState(false)
-  const [editSummary, setEditSummary] = useState('')
+  const [isEditing, setIsEditing] = useState(false);
+  const [editSummary, setEditSummary] = useState("");
   const [editSoap, setEditSoap] = useState({
-    subjective: '',
-    objective: '',
-    assessment: '',
-    plan: '',
-  })
-  const [saveLoading, setSaveLoading] = useState(false)
-  const [saveError, setSaveError] = useState<string | null>(null)
+    subjective: "",
+    objective: "",
+    assessment: "",
+    plan: "",
+  });
+  const [saveLoading, setSaveLoading] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!id) return
+    if (!id) return;
 
     const fetchData = async () => {
       try {
-        setLoading(true)
-        setError(null)
-        const res = await fetch(`${API_BASE_URL}/consultations/${id}`)
-        const body = await res.json().catch(() => ({}))
+        setLoading(true);
+        setError(null);
+        const res = await fetch(`${API_BASE_URL}/consultations/${id}`);
+        const body = await res.json().catch(() => ({}));
         if (!res.ok) {
           throw new Error(
-            (body as { detail?: string }).detail || 'Failed to load consultation',
-          )
+            (body as { detail?: string }).detail ||
+              "Failed to load consultation",
+          );
         }
-        setData(body as Consultation)
+        setData(body as Consultation);
       } catch (err: any) {
-        setError(err.message || 'Failed to load consultation')
+        setError(err.message || "Failed to load consultation");
       } finally {
-        setLoading(false)
+        setLoading(false);
       }
-    }
+    };
 
-    fetchData()
-  }, [id])
+    fetchData();
+  }, [id]);
 
-  const createdDate =
-    data?.createdAt ? new Date(data.createdAt).toLocaleString() : ''
+  const createdDate = data?.createdAt
+    ? new Date(data.createdAt).toLocaleString()
+    : "";
 
   const statusStyle = (() => {
-    const status = data?.status
-    if (!status) return null
+    const status = data?.status;
+    if (!status) return null;
     switch (status) {
-      case 'draft':
+      case "draft":
         return {
-          label: 'Draft',
-          bg: 'rgba(255,255,255,.06)',
-          color: '#5A7A6E',
-        }
-      case 'complete':
-      case 'completed':
+          label: "Draft",
+          bg: "rgba(255,255,255,.06)",
+          color: "#5A7A6E",
+        };
+      case "complete":
+      case "completed":
         return {
-          label: 'Complete',
-          bg: 'rgba(0,200,150,.15)',
-          color: '#00C896',
-        }
-      case 'verified':
+          label: "Complete",
+          bg: "rgba(0,200,150,.15)",
+          color: "#00C896",
+        };
+      case "verified":
         return {
-          label: 'Verified',
-          bg: 'rgba(0,163,255,.18)',
-          color: '#00A3FF',
-        }
-      case 'not_verified':
-      case 'not-verified':
+          label: "Verified",
+          bg: "rgba(0,163,255,.18)",
+          color: "#00A3FF",
+        };
+      case "not_verified":
+      case "not-verified":
         return {
-          label: 'Not Verified',
-          bg: 'rgba(255,149,0,.18)',
-          color: '#FF9500',
-        }
+          label: "Not Verified",
+          bg: "rgba(255,149,0,.18)",
+          color: "#FF9500",
+        };
       default:
         return {
           label: status,
-          bg: 'rgba(255,255,255,.06)',
-          color: '#5A7A6E',
-        }
+          bg: "rgba(255,255,255,.06)",
+          color: "#5A7A6E",
+        };
     }
-  })()
+  })();
 
   const openVerifyModal = () => {
-    if (!data) return
-    setVerifyingDoctor(data.doctorName || '')
-    setVerifyStatus('verified')
-    setVerifyError(null)
-    setShowVerifyModal(true)
-  }
+    if (!data) return;
+    setVerifyingDoctor(data.doctorName || "");
+    setVerifyStatus("verified");
+    setVerifyError(null);
+    setShowVerifyModal(true);
+  };
 
   const startEditing = () => {
-    if (!data) return
-    const soap = data.soap || {}
+    if (!data) return;
+    const soap = data.soap || {};
     const readField = (key: string) =>
       (soap as any)[key] ??
       (soap as any)[key.charAt(0).toUpperCase() + key.slice(1)] ??
-      ''
+      "";
 
-    setEditSummary(data.summary || '')
+    setEditSummary(data.summary || "");
     setEditSoap({
-      subjective: String(readField('subjective') || ''),
-      objective: String(readField('objective') || ''),
-      assessment: String(readField('assessment') || ''),
-      plan: String(readField('plan') || ''),
-    })
-    setSaveError(null)
-    setIsEditing(true)
-  }
+      subjective: String(readField("subjective") || ""),
+      objective: String(readField("objective") || ""),
+      assessment: String(readField("assessment") || ""),
+      plan: String(readField("plan") || ""),
+    });
+    setSaveError(null);
+    setIsEditing(true);
+  };
 
   const cancelEditing = () => {
-    setIsEditing(false)
-    setSaveError(null)
-  }
+    setIsEditing(false);
+    setSaveError(null);
+  };
 
   const handleSaveEdits = async () => {
-    if (!data) return
+    if (!data) return;
     try {
-      setSaveLoading(true)
-      setSaveError(null)
+      setSaveLoading(true);
+      setSaveError(null);
       const res = await fetch(
         `${API_BASE_URL}/consultations/${data.consultationID}/metadata`,
         {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             created_at: data.createdAt,
-            patient_name: data.patientName || 'Unknown patient',
-            doctor_name: data.doctorName || 'Unknown doctor',
-            patient_dob: data.patientDob || '',
+            patient_name: data.patientName || "Unknown patient",
+            doctor_name: data.doctorName || "Unknown doctor",
+            patient_dob: data.patientDob || "",
             soap: editSoap,
             summary: editSummary,
             diagnoses: data.diagnoses || [],
@@ -179,13 +180,13 @@ export default function ConsultationDetailPage() {
             status: data.status,
           }),
         },
-      )
-      const body = await res.json().catch(() => ({}))
+      );
+      const body = await res.json().catch(() => ({}));
       if (!res.ok) {
         throw new Error(
           (body as { detail?: string }).detail ||
-            'Failed to save edited consultation',
-        )
+            "Failed to save edited consultation",
+        );
       }
       setData((prev) =>
         prev
@@ -198,40 +199,40 @@ export default function ConsultationDetailPage() {
               },
             }
           : prev,
-      )
-      setIsEditing(false)
-      toast.success('Updates saved')
+      );
+      setIsEditing(false);
+      toast.success("Updates saved");
     } catch (err: any) {
-      setSaveError(err.message || 'Failed to save edited consultation')
-      toast.error(err.message || 'Failed to save edited consultation')
+      setSaveError(err.message || "Failed to save edited consultation");
+      toast.error(err.message || "Failed to save edited consultation");
     } finally {
-      setSaveLoading(false)
+      setSaveLoading(false);
     }
-  }
+  };
 
   const handleSubmitVerification = async () => {
-    if (!data) return
+    if (!data) return;
     try {
-      setVerifyLoading(true)
-      setVerifyError(null)
+      setVerifyLoading(true);
+      setVerifyError(null);
       const res = await fetch(
         `${API_BASE_URL}/consultations/${data.consultationID}/status`,
         {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             created_at: data.createdAt,
             status: verifyStatus,
             verifying_doctor: verifyingDoctor || data.doctorName || undefined,
           }),
         },
-      )
-      const body = await res.json().catch(() => ({}))
+      );
+      const body = await res.json().catch(() => ({}));
       if (!res.ok) {
         throw new Error(
           (body as { detail?: string }).detail ||
-            'Failed to update verification status',
-        )
+            "Failed to update verification status",
+        );
       }
       setData((prev) =>
         prev
@@ -242,17 +243,17 @@ export default function ConsultationDetailPage() {
               verifiedBy: verifyingDoctor || prev.verifiedBy,
             }
           : prev,
-      )
-      setShowVerifyModal(false)
+      );
+      setShowVerifyModal(false);
     } catch (err: any) {
-      setVerifyError(err.message || 'Failed to update verification status')
+      setVerifyError(err.message || "Failed to update verification status");
     } finally {
-      setVerifyLoading(false)
+      setVerifyLoading(false);
     }
-  }
+  };
 
   return (
-    <div className="h-screen overflow-hidden" style={{ background: '#050A0F' }}>
+    <div className="h-screen overflow-hidden" style={{ background: "#050A0F" }}>
       {/* Background Grid and Orbs (same theme as main dashboard) */}
       <div className="fixed inset-0 pointer-events-none z-0">
         <div
@@ -262,35 +263,35 @@ export default function ConsultationDetailPage() {
               linear-gradient(rgba(0,200,150,0.04) 1px, transparent 1px),
               linear-gradient(90deg, rgba(0,200,150,0.04) 1px, transparent 1px)
             `,
-            backgroundSize: '40px 40px',
+            backgroundSize: "40px 40px",
           }}
         />
         <div
           className="absolute w-96 h-96 rounded-full blur-3xl opacity-12 pointer-events-none"
           style={{
-            background: '#00C896',
-            top: '-200px',
-            left: '-150px',
-            animation: 'driftA 18s ease-in-out infinite',
+            background: "#00C896",
+            top: "-200px",
+            left: "-150px",
+            animation: "driftA 18s ease-in-out infinite",
           }}
         />
         <div
           className="absolute w-80 h-80 rounded-full blur-3xl opacity-12 pointer-events-none"
           style={{
-            background: '#00A3FF',
-            bottom: '-100px',
-            right: '-100px',
-            animation: 'driftB 22s ease-in-out infinite',
+            background: "#00A3FF",
+            bottom: "-100px",
+            right: "-100px",
+            animation: "driftB 22s ease-in-out infinite",
           }}
         />
         <div
           className="absolute w-72 h-72 rounded-full blur-3xl opacity-12 pointer-events-none"
           style={{
-            background: '#7B61FF',
-            top: '40%',
-            left: '50%',
-            transform: 'translate(-50%, -50%)',
-            animation: 'driftC 15s ease-in-out infinite',
+            background: "#7B61FF",
+            top: "40%",
+            left: "50%",
+            transform: "translate(-50%, -50%)",
+            animation: "driftC 15s ease-in-out infinite",
           }}
         />
       </div>
@@ -314,26 +315,29 @@ export default function ConsultationDetailPage() {
       <div className="relative z-10 flex flex-col h-full">
         <div className="flex flex-1 overflow-hidden">
           <Sidebar
-            selectedRecord={id || ''}
+            selectedRecord={id || ""}
             onSelectRecord={(recordId) => router.push(`/dashboard/${recordId}`)}
           />
 
           <div
             className="flex-1 flex flex-col overflow-hidden"
-            style={{ background: 'rgba(12,21,32,.4)' }}
+            style={{ background: "rgba(12,21,32,.4)" }}
           >
             {/* Header */}
             <div
               className="px-6 py-4 border-b flex items-center justify-between gap-4"
-              style={{ borderColor: 'rgba(0,200,150,0.15)' }}
+              style={{ borderColor: "rgba(0,200,150,0.15)" }}
             >
               <div className="min-w-0">
-                <div className="text-lg font-bold truncate" style={{ color: '#E8F4F0' }}>
-                  {data?.patientName || 'Unknown patient'}
+                <div
+                  className="text-lg font-bold truncate"
+                  style={{ color: "#E8F4F0" }}
+                >
+                  {data?.patientName || "Unknown patient"}
                 </div>
                 <div
                   className="text-xs flex flex-wrap gap-2 items-center"
-                  style={{ color: '#5A7A6E' }}
+                  style={{ color: "#5A7A6E" }}
                 >
                   {data?.doctorName && <>Doctor: {data.doctorName}</>}
                   {data?.patientDob && (
@@ -360,7 +364,7 @@ export default function ConsultationDetailPage() {
                     style={{
                       background: statusStyle.bg,
                       color: statusStyle.color,
-                      letterSpacing: '0.8px',
+                      letterSpacing: "0.8px",
                     }}
                   >
                     {statusStyle.label}
@@ -369,11 +373,11 @@ export default function ConsultationDetailPage() {
                 <button
                   className="px-4 py-2 rounded-full text-xs font-semibold border-none cursor-pointer"
                   style={{
-                    background: 'rgba(0,200,150,.12)',
-                    color: '#00C896',
-                    boxShadow: '0 0 14px rgba(0,200,150,.35)',
+                    background: "rgba(0,200,150,.12)",
+                    color: "#00C896",
+                    boxShadow: "0 0 14px rgba(0,200,150,.35)",
                   }}
-                  onClick={() => router.push('/dashboard')}
+                  onClick={() => router.push("/dashboard")}
                 >
                   ← Back to live view
                 </button>
@@ -385,21 +389,21 @@ export default function ConsultationDetailPage() {
               <div
                 className="flex flex-col gap-4 overflow-y-auto pr-1"
                 style={{
-                  scrollbarWidth: 'thin',
-                  scrollbarColor: 'rgba(0,200,150,0.5) transparent',
+                  scrollbarWidth: "thin",
+                  scrollbarColor: "rgba(0,200,150,0.5) transparent",
                 }}
               >
                 {/* Summary */}
                 <div
                   className="rounded-xl p-4 border"
                   style={{
-                    background: 'rgba(255,255,255,.02)',
-                    borderColor: 'rgba(0,200,150,0.15)',
+                    background: "rgba(255,255,255,.02)",
+                    borderColor: "rgba(0,200,150,0.15)",
                   }}
                 >
                   <div
                     className="text-xs font-bold uppercase mb-2"
-                    style={{ color: '#5A7A6E', letterSpacing: '1.5px' }}
+                    style={{ color: "#5A7A6E", letterSpacing: "1.5px" }}
                   >
                     Clinical Summary
                   </div>
@@ -409,16 +413,16 @@ export default function ConsultationDetailPage() {
                       onChange={(e) => setEditSummary(e.target.value)}
                       className="w-full mt-1 rounded border px-3 py-2 text-sm outline-none"
                       style={{
-                        background: 'rgba(5,10,15,.9)',
-                        borderColor: 'rgba(0,200,150,0.25)',
-                        color: '#C5DDD5',
-                        resize: 'vertical',
-                        minHeight: '80px',
+                        background: "rgba(5,10,15,.9)",
+                        borderColor: "rgba(0,200,150,0.25)",
+                        color: "#C5DDD5",
+                        resize: "vertical",
+                        minHeight: "80px",
                       }}
                     />
                   ) : (
-                    <div className="text-sm" style={{ color: '#C5DDD5' }}>
-                      {data?.summary ? data.summary : 'No summary available.'}
+                    <div className="text-sm" style={{ color: "#C5DDD5" }}>
+                      {data?.summary ? data.summary : "No summary available."}
                     </div>
                   )}
                 </div>
@@ -427,51 +431,51 @@ export default function ConsultationDetailPage() {
                 <div
                   className="rounded-xl p-4 border"
                   style={{
-                    background: 'rgba(255,255,255,.02)',
-                    borderColor: 'rgba(0,200,150,0.15)',
+                    background: "rgba(255,255,255,.02)",
+                    borderColor: "rgba(0,200,150,0.15)",
                   }}
                 >
                   <div
                     className="text-xs font-bold uppercase mb-3"
-                    style={{ color: '#5A7A6E', letterSpacing: '1.5px' }}
+                    style={{ color: "#5A7A6E", letterSpacing: "1.5px" }}
                   >
                     SOAP Note
                   </div>
                   {data?.soap && Object.keys(data.soap).length > 0 ? (
                     <div className="space-y-3">
-                      {['subjective', 'objective', 'assessment', 'plan'].map(
+                      {["subjective", "objective", "assessment", "plan"].map(
                         (key) => {
                           const value =
                             (data.soap as any)[key] ??
                             (data.soap as any)[
                               key.charAt(0).toUpperCase() + key.slice(1)
-                            ]
-                          if (!value) return null
+                            ];
+                          if (!value) return null;
                           const label =
-                            key === 'subjective'
-                              ? 'S — Subjective'
-                              : key === 'objective'
-                                ? 'O — Objective'
-                                : key === 'assessment'
-                                  ? 'A — Assessment'
-                                  : 'P — Plan'
+                            key === "subjective"
+                              ? "S — Subjective"
+                              : key === "objective"
+                                ? "O — Objective"
+                                : key === "assessment"
+                                  ? "A — Assessment"
+                                  : "P — Plan";
                           const sectionKey = key as
-                            | 'subjective'
-                            | 'objective'
-                            | 'assessment'
-                            | 'plan'
+                            | "subjective"
+                            | "objective"
+                            | "assessment"
+                            | "plan";
                           return (
                             <div
                               key={key}
                               className="rounded-lg p-3"
                               style={{
-                                background: 'rgba(0,200,150,0.04)',
-                                border: '1px solid rgba(0,200,150,0.15)',
+                                background: "rgba(0,200,150,0.04)",
+                                border: "1px solid rgba(0,200,150,0.15)",
                               }}
                             >
                               <div
                                 className="text-xs font-semibold mb-1"
-                                style={{ color: '#00C896' }}
+                                style={{ color: "#00C896" }}
                               >
                                 {label}
                               </div>
@@ -486,33 +490,33 @@ export default function ConsultationDetailPage() {
                                   }
                                   className="w-full mt-1 rounded border px-3 py-2 text-sm outline-none"
                                   style={{
-                                    background: 'rgba(5,10,15,.9)',
-                                    borderColor: 'rgba(0,200,150,0.25)',
-                                    color: '#C5DDD5',
-                                    resize: 'vertical',
-                                    minHeight: '70px',
+                                    background: "rgba(5,10,15,.9)",
+                                    borderColor: "rgba(0,200,150,0.25)",
+                                    color: "#C5DDD5",
+                                    resize: "vertical",
+                                    minHeight: "70px",
                                   }}
                                 />
                               ) : (
                                 <div
                                   className="text-sm"
                                   style={{
-                                    color: '#C5DDD5',
-                                    whiteSpace: 'pre-wrap',
+                                    color: "#C5DDD5",
+                                    whiteSpace: "pre-wrap",
                                   }}
                                 >
-                                  {typeof value === 'string'
+                                  {typeof value === "string"
                                     ? value
                                     : JSON.stringify(value, null, 2)}
                                 </div>
                               )}
                             </div>
-                          )
+                          );
                         },
                       )}
                     </div>
                   ) : (
-                    <div className="text-sm" style={{ color: '#5A7A6E' }}>
+                    <div className="text-sm" style={{ color: "#5A7A6E" }}>
                       No SOAP note stored for this consultation.
                     </div>
                   )}
@@ -524,9 +528,9 @@ export default function ConsultationDetailPage() {
                       <div
                         className="text-xs px-3 py-1.5 rounded-lg"
                         style={{
-                          background: 'rgba(255,77,109,0.14)',
-                          color: '#FFB3C3',
-                          border: '1px solid rgba(255,77,109,0.4)',
+                          background: "rgba(255,77,109,0.14)",
+                          color: "#FFB3C3",
+                          border: "1px solid rgba(255,77,109,0.4)",
                         }}
                       >
                         {saveError}
@@ -537,9 +541,9 @@ export default function ConsultationDetailPage() {
                         type="button"
                         className="px-3 py-1.5 rounded-lg text-xs font-semibold border-none cursor-pointer"
                         style={{
-                          background: 'rgba(255,255,255,.02)',
-                          color: '#5A7A6E',
-                          border: '1px solid rgba(0,200,150,0.15)',
+                          background: "rgba(255,255,255,.02)",
+                          color: "#5A7A6E",
+                          border: "1px solid rgba(0,200,150,0.15)",
                         }}
                         onClick={cancelEditing}
                       >
@@ -552,14 +556,14 @@ export default function ConsultationDetailPage() {
                         className="px-4 py-1.5 rounded-lg text-xs font-bold border-none cursor-pointer"
                         style={{
                           background: saveLoading
-                            ? 'rgba(0,200,150,0.16)'
-                            : 'linear-gradient(135deg, #00C896, #00A875)',
-                          color: '#050A0F',
-                          boxShadow: '0 0 16px rgba(0,200,150,.4)',
+                            ? "rgba(0,200,150,0.16)"
+                            : "linear-gradient(135deg, #00C896, #00A875)",
+                          color: "#050A0F",
+                          boxShadow: "0 0 16px rgba(0,200,150,.4)",
                           opacity: saveLoading ? 0.7 : 1,
                         }}
                       >
-                        {saveLoading ? 'Saving...' : 'Save changes'}
+                        {saveLoading ? "Saving..." : "Save changes"}
                       </button>
                     </div>
                   </div>
@@ -569,13 +573,13 @@ export default function ConsultationDetailPage() {
                 <div
                   className="rounded-xl p-4 border"
                   style={{
-                    background: 'rgba(5,10,15,.9)',
-                    borderColor: 'rgba(0,200,150,0.15)',
+                    background: "rgba(5,10,15,.9)",
+                    borderColor: "rgba(0,200,150,0.15)",
                   }}
                 >
                   <div
                     className="text-xs font-bold uppercase mb-3"
-                    style={{ color: '#5A7A6E', letterSpacing: '1.5px' }}
+                    style={{ color: "#5A7A6E", letterSpacing: "1.5px" }}
                   >
                     Transcript
                   </div>
@@ -586,8 +590,8 @@ export default function ConsultationDetailPage() {
                           <div
                             className="w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold"
                             style={{
-                              background: 'rgba(0,200,150,.2)',
-                              color: '#00C896',
+                              background: "rgba(0,200,150,.2)",
+                              color: "#00C896",
                             }}
                           >
                             AI
@@ -595,13 +599,13 @@ export default function ConsultationDetailPage() {
                           <div className="flex-1">
                             <div
                               className="text-[11px]"
-                              style={{ color: '#5A7A6E' }}
+                              style={{ color: "#5A7A6E" }}
                             >
                               {line.timestamp}
                             </div>
                             <div
                               className="text-sm"
-                              style={{ color: '#C5DDD5' }}
+                              style={{ color: "#C5DDD5" }}
                             >
                               {line.text}
                             </div>
@@ -609,7 +613,7 @@ export default function ConsultationDetailPage() {
                         </div>
                       ))
                     ) : (
-                      <div className="text-sm" style={{ color: '#5A7A6E' }}>
+                      <div className="text-sm" style={{ color: "#5A7A6E" }}>
                         No transcript captured for this consultation.
                       </div>
                     )}
@@ -619,7 +623,7 @@ export default function ConsultationDetailPage() {
 
               {/* Right side: diagnoses + entities reuse RightPanel */}
               <RightPanel
-                selectedRecord={id || ''}
+                selectedRecord={id || ""}
                 diagnoses={data?.diagnoses || []}
                 entities={data?.entities || []}
                 isLoading={loading}
@@ -631,8 +635,8 @@ export default function ConsultationDetailPage() {
               <div
                 className="absolute inset-0 flex items-center justify-center text-xs"
                 style={{
-                  background: 'rgba(5,10,15,.6)',
-                  color: '#5A7A6E',
+                  background: "rgba(5,10,15,.6)",
+                  color: "#5A7A6E",
                 }}
               >
                 Loading consultation...
@@ -643,9 +647,9 @@ export default function ConsultationDetailPage() {
               <div
                 className="absolute inset-x-0 bottom-4 mx-auto max-w-md text-xs px-3 py-2 rounded-lg"
                 style={{
-                  background: 'rgba(255,77,109,0.14)',
-                  color: '#FFB3C3',
-                  border: '1px solid rgba(255,77,109,0.4)',
+                  background: "rgba(255,77,109,0.14)",
+                  color: "#FFB3C3",
+                  border: "1px solid rgba(255,77,109,0.4)",
                 }}
               >
                 {error}
@@ -656,37 +660,37 @@ export default function ConsultationDetailPage() {
               <div
                 className="absolute inset-0 flex items-center justify-center px-4"
                 style={{
-                  background: 'rgba(5,10,15,0.75)',
-                  backdropFilter: 'blur(6px)',
+                  background: "rgba(5,10,15,0.75)",
+                  backdropFilter: "blur(6px)",
                 }}
               >
                 <div
                   className="w-full max-w-md rounded-2xl p-5 border relative"
                   style={{
-                    background: 'rgba(12,21,32,0.98)',
-                    borderColor: 'rgba(0,200,150,0.2)',
-                    boxShadow: '0 18px 60px rgba(0,0,0,0.5)',
+                    background: "rgba(12,21,32,0.98)",
+                    borderColor: "rgba(0,200,150,0.2)",
+                    boxShadow: "0 18px 60px rgba(0,0,0,0.5)",
                   }}
                 >
                   <div className="flex items-start justify-between mb-3">
                     <div>
                       <div
                         className="text-xs uppercase mb-1"
-                        style={{ color: '#5A7A6E', letterSpacing: '1.6px' }}
+                        style={{ color: "#5A7A6E", letterSpacing: "1.6px" }}
                       >
                         Verify & Sign
                       </div>
                       <div
                         className="text-sm font-semibold"
-                        style={{ color: '#E8F4F0' }}
+                        style={{ color: "#E8F4F0" }}
                       >
-                        {data?.patientName || 'Unknown patient'}
+                        {data?.patientName || "Unknown patient"}
                       </div>
                     </div>
                     <button
                       onClick={() => setShowVerifyModal(false)}
                       className="text-xs border-none cursor-pointer"
-                      style={{ color: '#5A7A6E' }}
+                      style={{ color: "#5A7A6E" }}
                     >
                       ✕
                     </button>
@@ -696,7 +700,7 @@ export default function ConsultationDetailPage() {
                     <div>
                       <label
                         className="block text-[10px] uppercase mb-1"
-                        style={{ color: '#5A7A6E', letterSpacing: '1px' }}
+                        style={{ color: "#5A7A6E", letterSpacing: "1px" }}
                       >
                         Verifying doctor name
                       </label>
@@ -707,9 +711,9 @@ export default function ConsultationDetailPage() {
                         placeholder="Dr. Name"
                         className="w-full px-3 py-1.5 rounded border text-xs outline-none"
                         style={{
-                          background: 'rgba(255,255,255,.03)',
-                          borderColor: 'rgba(0,200,150,0.2)',
-                          color: '#E8F4F0',
+                          background: "rgba(255,255,255,.03)",
+                          borderColor: "rgba(0,200,150,0.2)",
+                          color: "#E8F4F0",
                         }}
                       />
                     </div>
@@ -717,43 +721,43 @@ export default function ConsultationDetailPage() {
                     <div>
                       <div
                         className="text-[10px] uppercase mb-2"
-                        style={{ color: '#5A7A6E', letterSpacing: '1px' }}
+                        style={{ color: "#5A7A6E", letterSpacing: "1px" }}
                       >
                         Verification decision
                       </div>
                       <div className="flex gap-2">
                         <button
                           type="button"
-                          onClick={() => setVerifyStatus('verified')}
+                          onClick={() => setVerifyStatus("verified")}
                           className="flex-1 px-3 py-2 rounded-lg text-xs font-semibold border-none cursor-pointer"
                           style={{
                             background:
-                              verifyStatus === 'verified'
-                                ? 'rgba(0,200,150,.18)'
-                                : 'rgba(255,255,255,.02)',
+                              verifyStatus === "verified"
+                                ? "rgba(0,200,150,.18)"
+                                : "rgba(255,255,255,.02)",
                             color:
-                              verifyStatus === 'verified'
-                                ? '#00C896'
-                                : '#5A7A6E',
-                            border: '1px solid rgba(0,200,150,0.25)',
+                              verifyStatus === "verified"
+                                ? "#00C896"
+                                : "#5A7A6E",
+                            border: "1px solid rgba(0,200,150,0.25)",
                           }}
                         >
                           ✓ Verified
                         </button>
                         <button
                           type="button"
-                          onClick={() => setVerifyStatus('not_verified')}
+                          onClick={() => setVerifyStatus("not_verified")}
                           className="flex-1 px-3 py-2 rounded-lg text-xs font-semibold border-none cursor-pointer"
                           style={{
                             background:
-                              verifyStatus === 'not_verified'
-                                ? 'rgba(255,149,0,.18)'
-                                : 'rgba(255,255,255,.02)',
+                              verifyStatus === "not_verified"
+                                ? "rgba(255,149,0,.18)"
+                                : "rgba(255,255,255,.02)",
                             color:
-                              verifyStatus === 'not_verified'
-                                ? '#FF9500'
-                                : '#5A7A6E',
-                            border: '1px solid rgba(255,149,0,0.35)',
+                              verifyStatus === "not_verified"
+                                ? "#FF9500"
+                                : "#5A7A6E",
+                            border: "1px solid rgba(255,149,0,0.35)",
                           }}
                         >
                           ✎ Needs edit
@@ -763,20 +767,20 @@ export default function ConsultationDetailPage() {
 
                     <div
                       className="text-[11px]"
-                      style={{ color: '#5A7A6E', lineHeight: 1.5 }}
+                      style={{ color: "#5A7A6E", lineHeight: 1.5 }}
                     >
-                      Choosing <strong>Needs edit</strong> will mark this consultation as
-                      not verified so you can go back and adjust the notes before
-                      approving.
+                      Choosing <strong>Needs edit</strong> will mark this
+                      consultation as not verified so you can go back and adjust
+                      the notes before approving.
                     </div>
 
                     {verifyError && (
                       <div
                         className="text-xs px-3 py-2 rounded-lg"
                         style={{
-                          background: 'rgba(255,77,109,0.14)',
-                          color: '#FFB3C3',
-                          border: '1px solid rgba(255,77,109,0.4)',
+                          background: "rgba(255,77,109,0.14)",
+                          color: "#FFB3C3",
+                          border: "1px solid rgba(255,77,109,0.4)",
                         }}
                       >
                         {verifyError}
@@ -789,13 +793,13 @@ export default function ConsultationDetailPage() {
                       type="button"
                       className="px-3 py-2 rounded-lg text-xs font-semibold border-none cursor-pointer"
                       style={{
-                        background: 'rgba(255,255,255,.02)',
-                        color: '#5A7A6E',
-                        border: '1px solid rgba(0,200,150,0.15)',
+                        background: "rgba(255,255,255,.02)",
+                        color: "#5A7A6E",
+                        border: "1px solid rgba(0,200,150,0.15)",
                       }}
                       onClick={() => {
-                        setShowVerifyModal(false)
-                        startEditing()
+                        setShowVerifyModal(false);
+                        startEditing();
                       }}
                     >
                       Edit note
@@ -807,18 +811,18 @@ export default function ConsultationDetailPage() {
                       className="flex-1 px-4 py-2 rounded-lg text-xs font-bold border-none cursor-pointer"
                       style={{
                         background: verifyLoading
-                          ? 'rgba(0,200,150,0.16)'
-                          : 'linear-gradient(135deg, #00C896, #00A875)',
-                        color: '#050A0F',
-                        boxShadow: '0 0 20px rgba(0,200,150,.4)',
+                          ? "rgba(0,200,150,0.16)"
+                          : "linear-gradient(135deg, #00C896, #00A875)",
+                        color: "#050A0F",
+                        boxShadow: "0 0 20px rgba(0,200,150,.4)",
                         opacity: verifyLoading ? 0.7 : 1,
                       }}
                     >
                       {verifyLoading
-                        ? 'Saving verification...'
-                        : verifyStatus === 'verified'
-                          ? 'Submit as Verified'
-                          : 'Submit as Not Verified'}
+                        ? "Saving verification..."
+                        : verifyStatus === "verified"
+                          ? "Submit as Verified"
+                          : "Submit as Not Verified"}
                     </button>
                   </div>
                 </div>
@@ -828,6 +832,5 @@ export default function ConsultationDetailPage() {
         </div>
       </div>
     </div>
-  )
+  );
 }
-
