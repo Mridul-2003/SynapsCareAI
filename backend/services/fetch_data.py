@@ -33,9 +33,12 @@ def get_transcript_data(consultation_id: str, created_at: str) -> str:
         raise ValueError(f"No record found for consultationID={consultation_id}, createdAt={created_at}")
     
     transcript_list = item.get("transcript")
-    start_time = datetime.strptime(transcript_list[0].get('timestamp'), "%Y-%m-%dT%H:%M:%S.%f")
-    end_time = datetime.strptime(transcript_list[-1].get('timestamp'), "%Y-%m-%dT%H:%M:%S.%f")
-    duration_seconds = (end_time - start_time).total_seconds()
+    if transcript_list:
+        start_time = datetime.strptime(transcript_list[0].get('timestamp'), "%Y-%m-%dT%H:%M:%S.%f")
+        end_time = datetime.strptime(transcript_list[-1].get('timestamp'), "%Y-%m-%dT%H:%M:%S.%f")
+        duration_seconds = (end_time - start_time).total_seconds()
+    else:
+        duration_seconds = 0
     final_transcript = ""
     for transcript in transcript_list:
         final_transcript += transcript.get("text")
