@@ -1,6 +1,6 @@
 services:
   api:
-    image: mridul65888/transcript-api:latest
+    image: mridul65888/synapscaretranscript-api:latest
     container_name: transcript_api
     ports:
       - "8000:8000"
@@ -9,7 +9,7 @@ services:
     restart: unless-stopped
 
   main:
-    image: mridul65888/soap_notes-api:latest
+    image: mridul65888/synapscaresoap-api:latest
     container_name: soap_api
     ports:
       - "8001:8001"
@@ -18,9 +18,7 @@ services:
     restart: unless-stopped
 
   frontend:
-    build:
-      context: ./front
-      dockerfile: Dockerfile
+    image: mridul65888/synaoscareai-ui:latest
     container_name: frontend
     ports:
       - "3000:3000"
