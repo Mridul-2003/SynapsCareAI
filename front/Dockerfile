@@ -1,11 +1,10 @@
-FROM node:20-alpine AS deps
+# Stage 1: Dependencies
+FROM node:22-alpine AS deps
 
 WORKDIR /app
 
-# Copy package manifest and lockfiles first for better build caching
 COPY package.json package-lock.json* pnpm-lock.yaml* ./
 
-# Install dependencies using the available lockfile
 RUN set -eux; \
   if [ -f pnpm-lock.yaml ]; then \
     npm install -g pnpm && \
@@ -16,8 +15,8 @@ RUN set -eux; \
     npm install; \
   fi
 
-# Build stage
-FROM node:20-alpine AS builder
+# Stage 2: Builder
+FROM node:22-alpine AS builder
 
 WORKDIR /app
 
@@ -28,8 +27,8 @@ COPY . .
 
 RUN npm run build
 
-# Production runtime image
-FROM node:20-alpine AS runner
+# Stage 3: Production runner
+FROM node:22-alpine AS runner
 
 WORKDIR /app
 
@@ -37,18 +36,22 @@ ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV PORT=3000
 
-# Use a non-root user for security
+# Fix Alpine CVEs
+RUN apk add --no-cache --upgrade zlib libssl3 libcrypto3 || true
+
+# npm remove karo — runtime mein zaroorat nahi, vulnerabilities bhi saath jaayengi
+RUN rm -rf /usr/local/lib/node_modules/npm \
+    && rm -f /usr/local/bin/npm /usr/local/bin/npx
+
 RUN addgroup -g 1001 -S nodejs && adduser -S nextjs -u 1001
 
-# Copy only what is needed to run the built app
-COPY --from=deps /app/node_modules ./node_modules
+# Standalone output — node_modules ki zaroorat nahi runner mein
+COPY --from=builder /app/.next/standalone ./
+COPY --from=builder /app/.next/static ./.next/static
 COPY --from=builder /app/public ./public
-COPY --from=builder /app/.next ./.next
-COPY package.json ./
 
 USER nextjs
 
 EXPOSE 3000
 
-CMD ["npm", "start"]
-
+CMD ["node", "server.js"]
