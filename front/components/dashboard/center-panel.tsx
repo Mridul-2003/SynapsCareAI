@@ -95,7 +95,7 @@ export default function CenterPanel({
       setSummary(null);
       setDuration(0); // ← reset duration on new recording
 
-      const socket = io(process.env.NEXT_PUBLIC_API_URL as string, {
+      const socket = io(process.env.NEXT_PUBLIC_APP_URL as string, {
         path: "/socket.io",
         transports: ["websocket"],
         secure: true,
