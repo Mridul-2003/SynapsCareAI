@@ -82,10 +82,13 @@ export default function Records() {
   };
 
   return (
-    <div className="flex flex-col flex-1 p-4 md:p-7 gap-4 md:gap-5 overflow-hidden">
+    <div className="flex flex-col flex-1 h-full p-4 md:p-7 gap-4 md:gap-5 overflow-hidden">
       {/* Header */}
       <div>
-        <div className="text-xl md:text-2xl font-bold" style={{ color: "#E8F4F0" }}>
+        <div
+          className="text-xl md:text-2xl font-bold"
+          style={{ color: "#E8F4F0" }}
+        >
           All <span style={{ color: "#00C896" }}>Records</span>
         </div>
       </div>
@@ -135,7 +138,7 @@ export default function Records() {
       </div>
 
       {/* Records List */}
-      <div className="flex flex-col gap-3 overflow-y-auto pr-1 flex-1 min-h-0">
+      <div className="flex flex-col gap-3 flex-1 min-h-0 h-full overflow-y-auto pr-1">
         {isLoading && (
           <div style={{ color: "#5A7A6E" }}>Loading records...</div>
         )}
@@ -193,8 +196,12 @@ export default function Records() {
                 </span>
               </div>
 
-              <div className="flex flex-wrap gap-2 md:gap-4 text-xs" style={{ color: "#5A7A6E" }}>
+              <div
+                className="flex flex-wrap gap-2 md:gap-4 text-xs"
+                style={{ color: "#5A7A6E" }}
+              >
                 <span>Duration: {record.duration}</span>
+
                 <span>
                   Confidence:{" "}
                   {record.soapConfidence?.subjective !== undefined && (
