@@ -356,11 +356,9 @@ export default function CenterPanel({
         summary: data.summary ?? null,
         diagnoses: data.diagnoses ?? [],
         entities: data.entities ?? [],
-        totalDuration: data.total_duration ?? duration, // ← ADDED: API se aaya ya fallback timer se
-        soapConfidence: data.soap_confidence ?? {}, // ← ADDED
+        totalDuration: data.total_duration ?? duration,
+        soapConfidence: data.soap_confidence ?? {},
       });
-
-      resetForNewConsultation();
     } catch (err: any) {
       setSoapError(err.message || "Failed to generate SOAP note");
     } finally {
