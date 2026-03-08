@@ -82,9 +82,9 @@ export default function Records() {
   };
 
   return (
-    <div className="flex flex-col flex-1 h-full p-4 md:p-7 gap-4 md:gap-5 overflow-hidden">
+    <div className="flex flex-col h-full w-full p-4 md:p-7 gap-4 md:gap-5 overflow-hidden">
       {/* Header */}
-      <div>
+      <div className="shrink-0">
         <div
           className="text-xl md:text-2xl font-bold"
           style={{ color: "#E8F4F0" }}
@@ -94,7 +94,7 @@ export default function Records() {
       </div>
 
       {/* Controls */}
-      <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3 shrink-0">
         {/* Search */}
         <div
           className="flex items-center gap-2 px-3.5 py-2 rounded-lg border flex-1 sm:max-w-xs"
@@ -118,7 +118,6 @@ export default function Records() {
         <div className="flex flex-wrap gap-2">
           {["all", "complete", "draft", "verified"].map((status) => {
             const isActive = filterStatus === status;
-
             return (
               <button
                 key={status}
@@ -138,7 +137,7 @@ export default function Records() {
       </div>
 
       {/* Records List */}
-      <div className="flex flex-col gap-3 flex-1 min-h-0 h-full overflow-y-auto pr-1">
+      <div className="flex flex-col gap-3 flex-1 min-h-0 overflow-y-auto pr-1">
         {isLoading && (
           <div style={{ color: "#5A7A6E" }}>Loading records...</div>
         )}
@@ -155,7 +154,7 @@ export default function Records() {
           return (
             <div
               key={record.id}
-              className="p-4 rounded-lg border cursor-pointer transition-all"
+              className="p-4 rounded-lg border cursor-pointer transition-all shrink-0"
               style={{
                 background: "rgba(255,255,255,.02)",
                 borderColor: "rgba(0,200,150,0.15)",
@@ -202,24 +201,16 @@ export default function Records() {
               >
                 <span>Duration: {record.duration}</span>
 
-                <span>
-                  Confidence:{" "}
-                  {record.soapConfidence?.subjective !== undefined && (
-                    <span>
-                      Subjective Confidence:{" "}
-                      <span style={{ color: "#00C896" }}>
-                        {(record.soapConfidence.subjective * 100).toFixed(0)}%
-                      </span>
+                {record.soapConfidence?.subjective !== undefined && (
+                  <span>
+                    Subjective Confidence:{" "}
+                    <span style={{ color: "#00C896" }}>
+                      {(record.soapConfidence.subjective * 100).toFixed(0)}%
                     </span>
-                  )}
-                </span>
+                  </span>
+                )}
 
-                <span
-                  style={{
-                    color: "#00C896",
-                    marginLeft: "auto",
-                  }}
-                >
+                <span style={{ color: "#00C896", marginLeft: "auto" }}>
                   View details →
                 </span>
               </div>

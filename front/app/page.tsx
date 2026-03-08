@@ -11,8 +11,8 @@ export default function Home() {
 
   return (
     <div
-      className="h-screen h-dvh overflow-hidden"
-      style={{ background: "#050A0F" }}
+      className="overflow-hidden"
+      style={{ background: "#050A0F", height: "100dvh" }}
     >
       {/* Background Grid and Orbs */}
       <div className="fixed inset-0 pointer-events-none z-0">
@@ -83,7 +83,7 @@ export default function Home() {
         <TopBar currentPage={currentPage} setCurrentPage={setCurrentPage} />
 
         {/* Page Content */}
-        <div className="flex-1 flex">
+        <div className="flex-1 flex min-h-0">
           {currentPage === "dashboard" && <Dashboard />}
           {currentPage === "records" && <Records />}
           {currentPage === "analytics" && <ComingSoonPage title="Analytics" />}
