@@ -7,9 +7,9 @@ interface CenterPanelProps {
   selectedRecord: string;
   activeTab: string;
   onTabChange: (tab: string) => void;
-  onSoapGenerated?: (data: { diagnoses: any[]; entities: any[] }) => void;
+  onSoapGenerated?: (data: { diagnoses: any[]; entities: any[]; consultationId: string; createdAt: string; patientName: string; doctorName: string }) => void;
   onLoadingChange?: (loading: boolean) => void;
-  onConsultationSaved?: () => void;
+  onConsultationSaved?: (info?: { consultationId: string; createdAt: string; patientName: string; doctorName: string }) => void;
 }
 
 interface TranscriptMessage {
@@ -269,7 +269,12 @@ export default function CenterPanel({
         );
       } else {
         console.log("✅ Consultation metadata saved");
-        onConsultationSaved?.();
+        onConsultationSaved?.({
+          consultationId,
+          createdAt,
+          patientName: patientName || "Unknown patient",
+          doctorName: doctorName || "Unknown doctor",
+        });
       }
     } catch (err) {
       console.error("Error saving consultation metadata", err);
@@ -337,13 +342,13 @@ export default function CenterPanel({
       setSummary(data.summary ?? null);
 
       if (onSoapGenerated) {
-        console.log("✅ onSoapGenerated callback firing with:", {
-          diagnoses: data.diagnoses ?? [],
-          entities: data.entities ?? [],
-        });
         onSoapGenerated({
           diagnoses: data.diagnoses ?? [],
           entities: data.entities ?? [],
+          consultationId,
+          createdAt,
+          patientName: patientName || "Unknown patient",
+          doctorName: doctorName || "Unknown doctor",
         });
       } else {
         console.warn("⚠️ onSoapGenerated prop missing! Parent se pass karo.");
