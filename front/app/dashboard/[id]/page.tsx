@@ -679,7 +679,7 @@ export default function ConsultationDetailPage() {
 
             {showVerifyModal && (
               <div
-                className="absolute inset-0 flex items-center justify-center px-4"
+                className="fixed inset-0 flex items-center justify-center px-4 z-50"
                 style={{
                   background: "rgba(5,10,15,0.75)",
                   backdropFilter: "blur(6px)",
