@@ -314,10 +314,13 @@ export default function ConsultationDetailPage() {
       {/* Foreground layout */}
       <div className="relative z-10 flex flex-col h-full">
         <div className="flex flex-1 overflow-hidden">
-          <Sidebar
-            selectedRecord={id || ""}
-            onSelectRecord={(recordId) => router.push(`/dashboard/${recordId}`)}
-          />
+          {/* Sidebar hidden on mobile, visible on md+ */}
+          <div className="hidden md:flex">
+            <Sidebar
+              selectedRecord={id || ""}
+              onSelectRecord={(recordId) => router.push(`/dashboard/${recordId}`)}
+            />
+          </div>
 
           <div
             className="flex-1 flex flex-col overflow-hidden"
@@ -325,39 +328,42 @@ export default function ConsultationDetailPage() {
           >
             {/* Header */}
             <div
-              className="px-6 py-4 border-b flex items-center justify-between gap-4"
+              className="px-4 md:px-6 py-3 md:py-4 border-b flex flex-col sm:flex-row sm:items-center gap-3"
               style={{ borderColor: "rgba(0,200,150,0.15)" }}
             >
-              <div className="min-w-0">
+              <div className="min-w-0 flex-1">
                 <div
-                  className="text-lg font-bold truncate"
+                  className="text-base md:text-lg font-bold truncate"
                   style={{ color: "#E8F4F0" }}
                 >
                   {data?.patientName || "Unknown patient"}
                 </div>
                 <div
-                  className="text-xs flex flex-wrap gap-2 items-center"
+                  className="text-xs flex flex-wrap gap-1.5 items-center mt-0.5"
                   style={{ color: "#5A7A6E" }}
                 >
                   {data?.doctorName && <>Doctor: {data.doctorName}</>}
                   {data?.patientDob && (
                     <>
-                      <span>|</span> <span>DOB: {data.patientDob}</span>
+                      <span className="hidden sm:inline">|</span>
+                      <span>DOB: {data.patientDob}</span>
                     </>
                   )}
                   {createdDate && (
                     <>
-                      <span>|</span> <span>Created: {createdDate}</span>
+                      <span className="hidden sm:inline">|</span>
+                      <span>Created: {createdDate}</span>
                     </>
                   )}
                   {data?.verifiedBy && (
                     <>
-                      <span>|</span> <span>Verified by: {data.verifiedBy}</span>
+                      <span className="hidden sm:inline">|</span>
+                      <span>Verified by: {data.verifiedBy}</span>
                     </>
                   )}
                 </div>
               </div>
-              <div className="flex items-center gap-3 shrink-0">
+              <div className="flex items-center gap-2 sm:gap-3 shrink-0 flex-wrap">
                 {statusStyle && (
                   <span
                     className="px-3 py-1 rounded-full text-[11px] font-semibold uppercase"
@@ -371,7 +377,7 @@ export default function ConsultationDetailPage() {
                   </span>
                 )}
                 <button
-                  className="px-4 py-2 rounded-full text-xs font-semibold border-none cursor-pointer"
+                  className="px-3 md:px-4 py-1.5 md:py-2 rounded-full text-xs font-semibold border-none cursor-pointer"
                   style={{
                     background: "rgba(0,200,150,.12)",
                     color: "#00C896",
@@ -379,15 +385,15 @@ export default function ConsultationDetailPage() {
                   }}
                   onClick={() => router.push("/dashboard")}
                 >
-                  ← Back to live view
+                  ← Back
                 </button>
               </div>
             </div>
 
             {/* Content */}
-            <div className="flex-1 grid grid-cols-[minmax(0,2.4fr)_minmax(0,1.3fr)] gap-4 p-6 overflow-hidden">
+            <div className="flex-1 grid grid-cols-1 lg:grid-cols-[minmax(0,2.4fr)_minmax(0,1.3fr)] gap-4 p-4 md:p-6 overflow-hidden overflow-y-auto lg:overflow-hidden">
               <div
-                className="flex flex-col gap-4 overflow-y-auto pr-1"
+                className="flex flex-col gap-4 lg:overflow-y-auto pr-1"
                 style={{
                   scrollbarWidth: "thin",
                   scrollbarColor: "rgba(0,200,150,0.5) transparent",
@@ -622,13 +628,28 @@ export default function ConsultationDetailPage() {
               </div>
 
               {/* Right side: diagnoses + entities reuse RightPanel */}
-              <RightPanel
-                selectedRecord={id || ""}
-                diagnoses={data?.diagnoses || []}
-                entities={data?.entities || []}
-                isLoading={loading}
-                onVerifyAndSign={openVerifyModal}
-              />
+              <div className="hidden lg:flex">
+                <RightPanel
+                  selectedRecord={id || ""}
+                  diagnoses={data?.diagnoses || []}
+                  entities={data?.entities || []}
+                  isLoading={loading}
+                  onVerifyAndSign={openVerifyModal}
+                  className="flex-1 border-l"
+                />
+              </div>
+
+              {/* Mobile-only: Diagnoses/Entities below main content */}
+              <div className="lg:hidden">
+                <RightPanel
+                  selectedRecord={id || ""}
+                  diagnoses={data?.diagnoses || []}
+                  entities={data?.entities || []}
+                  isLoading={loading}
+                  onVerifyAndSign={openVerifyModal}
+                  className="flex-1 border border-t-0 border-l-0 border-r-0"
+                />
+              </div>
             </div>
 
             {loading && (
