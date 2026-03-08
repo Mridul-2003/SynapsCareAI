@@ -82,10 +82,6 @@ Clinician-observed or measurable findings mentioned in the conversation, includi
 • Test results discussed
 • Observations made by the doctor
 
-If none are mentioned return exactly:
-
-"No objective findings documented in this encounter."
-
 --------------------------------------------
 
 ASSESSMENT
@@ -96,9 +92,6 @@ Examples may include:
 • Suspected conditions
 • Clinical impressions
 
-If no diagnosis or clinical interpretation is mentioned return exactly:
-
-"Clinical assessment pending further evaluation."
 
 --------------------------------------------
 
@@ -112,9 +105,6 @@ Actions discussed or recommended during the encounter, including:
 • Follow-up visits
 • Referrals
 
-If none are mentioned return exactly:
-
-"Plan to be determined following full clinical assessment."
 
 --------------------------------------------------
 ICD-10 DIAGNOSIS RULES
