@@ -135,7 +135,7 @@ export default function Records() {
       </div>
 
       {/* Records List */}
-      <div className="flex flex-col gap-3 overflow-y-auto pr-1">
+      <div className="flex flex-col gap-3 overflow-y-auto pr-1 flex-1 min-h-0">
         {isLoading && (
           <div style={{ color: "#5A7A6E" }}>Loading records...</div>
         )}
