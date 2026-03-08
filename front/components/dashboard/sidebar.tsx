@@ -8,6 +8,7 @@ interface SidebarProps {
   selectedRecord: string;
   onSelectRecord: (recordId: string) => void;
   refreshKey?: number;
+  className?: string;
 }
 
 type SidebarRecord = {
@@ -23,6 +24,7 @@ export default function Sidebar({
   selectedRecord,
   onSelectRecord,
   refreshKey = 0,
+  className,
 }: SidebarProps) {
   const router = useRouter();
   const [records, setRecords] = useState<SidebarRecord[]>([]);
@@ -132,7 +134,7 @@ export default function Sidebar({
 
   return (
     <div
-      className="w-72 border-r flex flex-col overflow-hidden"
+      className={`border-r flex flex-col overflow-hidden ${className ?? 'w-72'}`}
       style={{
         borderColor: "rgba(0,200,150,0.15)",
         background: "rgba(12,21,32,.6)",
