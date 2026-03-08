@@ -30,6 +30,7 @@ interface RightPanelProps {
   alerts?: Alert[];
   isLoading?: boolean;
   onVerifyAndSign?: () => void;
+  className?: string;
 }
 
 // Entity type → color mapping
@@ -86,6 +87,7 @@ export default function RightPanel({
   alerts = DEFAULT_ALERTS,
   isLoading = false,
   onVerifyAndSign,
+  className,
 }: RightPanelProps) {
   const [selectedICDs, setSelectedICDs] = useState<string[]>([]);
 
@@ -97,7 +99,7 @@ export default function RightPanel({
 
   return (
     <div
-      className="border-l flex flex-col overflow-hidden min-w-[18rem]"
+      className={`border-l flex flex-col overflow-hidden ${className ?? 'min-w-[18rem]'}`}
       style={{
         borderColor: "rgba(0,200,150,0.15)",
         background: "rgba(12,21,32,.6)",

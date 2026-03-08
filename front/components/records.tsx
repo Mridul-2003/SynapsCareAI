@@ -82,19 +82,19 @@ export default function Records() {
   };
 
   return (
-    <div className="flex flex-col flex-1 p-7 gap-5 overflow-hidden">
+    <div className="flex flex-col flex-1 p-4 md:p-7 gap-4 md:gap-5 overflow-hidden">
       {/* Header */}
       <div>
-        <div className="text-2xl font-bold" style={{ color: "#E8F4F0" }}>
+        <div className="text-xl md:text-2xl font-bold" style={{ color: "#E8F4F0" }}>
           All <span style={{ color: "#00C896" }}>Records</span>
         </div>
       </div>
 
       {/* Controls */}
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3">
         {/* Search */}
         <div
-          className="flex items-center gap-2 px-3.5 py-2 rounded-lg border flex-1 max-w-xs"
+          className="flex items-center gap-2 px-3.5 py-2 rounded-lg border flex-1 sm:max-w-xs"
           style={{
             background: "rgba(255,255,255,.03)",
             borderColor: "rgba(0,200,150,0.15)",
@@ -112,7 +112,7 @@ export default function Records() {
         </div>
 
         {/* Status Filters */}
-        <div className="flex gap-2 cursor-pointer">
+        <div className="flex flex-wrap gap-2">
           {["all", "complete", "draft", "verified"].map((status) => {
             const isActive = filterStatus === status;
 
@@ -120,7 +120,7 @@ export default function Records() {
               <button
                 key={status}
                 onClick={() => setFilterStatus(status)}
-                className="px-4 py-1.5 rounded-full text-xs font-medium border transition-all cursor-pointer"
+                className="px-3 md:px-4 py-1.5 rounded-full text-xs font-medium border transition-all cursor-pointer"
                 style={{
                   borderColor: isActive ? "#00C896" : "rgba(0,200,150,0.15)",
                   background: isActive ? "rgba(0,200,150,0.15)" : "transparent",
@@ -193,7 +193,7 @@ export default function Records() {
                 </span>
               </div>
 
-              <div className="flex gap-4 text-xs" style={{ color: "#5A7A6E" }}>
+              <div className="flex flex-wrap gap-2 md:gap-4 text-xs" style={{ color: "#5A7A6E" }}>
                 <span>Duration: {record.duration}</span>
                 <span>
                   Confidence:{" "}

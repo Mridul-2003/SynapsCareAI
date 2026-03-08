@@ -497,10 +497,10 @@ export default function CenterPanel({
     >
       {/* Header */}
       <div
-        className="px-6 py-4 border-b flex items-center justify-between"
+        className="px-4 md:px-6 py-3 md:py-4 border-b flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3"
         style={{ borderColor: "rgba(0,200,150,0.15)" }}
       >
-        <div className="flex-1 space-y-2 mr-4">
+        <div className="flex-1 space-y-2">
           <div className="grid grid-cols-2 gap-2">
             <div>
               <label
@@ -544,7 +544,7 @@ export default function CenterPanel({
             </div>
           </div>
           <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-2 items-end">
-            <div className="max-w-45">
+            <div className="max-w-[11rem]">
               <label
                 className="block text-[10px] uppercase mb-1"
                 style={{ color: "#5A7A6E", letterSpacing: "1px" }}
@@ -567,7 +567,7 @@ export default function CenterPanel({
         </div>
         <button
           onClick={toggleRecording}
-          className="px-5 py-2.5 rounded-full text-xs font-bold"
+          className="px-5 py-2.5 rounded-full text-xs font-bold self-end sm:self-auto shrink-0"
           style={{
             background: "linear-gradient(135deg, #FF4D6D, #c0392b)",
             color: "white",
@@ -581,7 +581,7 @@ export default function CenterPanel({
       </div>
 
       {/* Waveform */}
-      <div className="px-6 py-3 flex items-center gap-2">
+      <div className="px-4 md:px-6 py-3 flex items-center gap-2 overflow-hidden">
         {waveformBars.map((h, i) => (
           <div
             key={i}
@@ -614,7 +614,7 @@ export default function CenterPanel({
       </div>
 
       {/* Content */}
-      <div className="flex-1 p-6 overflow-y-auto">
+      <div className="flex-1 p-4 md:p-6 overflow-y-auto">
         {activeTab === "transcript" && renderTranscript()}
         {activeTab === "soap" && renderSOAP()}
         {activeTab === "summary" && (
