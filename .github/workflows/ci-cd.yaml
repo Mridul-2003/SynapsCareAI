@@ -120,6 +120,7 @@ jobs:
             docker-compose down || true
 
             echo "▶️ Starting containers"
+
             docker-compose up -d
 
             echo "✅ Deployment completed"
