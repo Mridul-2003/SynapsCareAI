@@ -9,7 +9,6 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
 
 jobs:
   # 🧪 TEST FRONTEND
@@ -46,8 +45,6 @@ jobs:
         run: |
           cd backend
           pip install -r requirements.txt
-          # agar tests hain:
-          # pytest
 
   # 🐳 BUILD & PUSH IMAGES
   build:
@@ -75,8 +72,7 @@ jobs:
         with:
           context: ./backend
           push: true
-          tags: |
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-backend:latest
+          tags: ghcr.io/ajay308/synapscare-backend:latest
 
       # 🔥 Frontend image
       - name: Build & Push Frontend
@@ -84,8 +80,7 @@ jobs:
         with:
           context: ./front
           push: true
-          tags: |
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-frontend:latest
+          tags: ghcr.io/ajay308/synapscare-frontend:latest
 
   # 🚀 DEPLOY USING DOCKER-COMPOSE
   deploy:
@@ -108,8 +103,8 @@ jobs:
             cd /home/ubuntu/app || mkdir -p /home/ubuntu/app && cd /home/ubuntu/app
 
             echo "📥 Pull latest images"
-            docker pull ghcr.io/${{ github.repository }}-backend:latest
-            docker pull ghcr.io/${{ github.repository }}-frontend:latest
+            docker pull ghcr.io/ajay308/synapscare-backend:latest
+            docker pull ghcr.io/ajay308/synapscare-frontend:latest
 
             echo "🛑 Stop old containers"
             docker-compose down || true
