@@ -1,0 +1,104 @@
+name: Simple Production CI/CD
+
+# ─────────────────────────────────────────────
+# 🔁 TRIGGERS
+# ─────────────────────────────────────────────
+on:
+  push:
+    branches:
+      - main # production
+      - develop # staging
+      - echo "Connecting to server..."
+  pull_request:
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+# ─────────────────────────────────────────────
+# 🧪 JOB 1 — TEST
+# ─────────────────────────────────────────────
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 📥 Step 1: Code fetch karo
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # ⚙️ Step 2: Node setup
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm # dependencies caching
+
+      # 📦 Step 3: Install dependencies
+      - name: Install dependencies
+        run: npm ci # lockfile based install (fast + reliable)
+
+      # 🧹 Step 4: Lint check
+      - name: Run lint
+        run: npm run lint
+
+      # 🧪 Step 5: Unit tests
+      - name: Run tests
+        run: npm test
+
+  # ─────────────────────────────────────────────
+  # 🐳 JOB 2 — BUILD & PUSH DOCKER IMAGE
+  # ─────────────────────────────────────────────
+  build:
+    needs: test
+    runs-on: ubuntu-latest
+
+    # PR pe image push nahi karna
+    if: github.event_name != 'pull_request'
+
+    steps:
+      # 📥 Step 1: Code fetch
+      - uses: actions/checkout@v4
+
+      # 🏗️ Step 2: Docker buildx setup
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # 🔐 Step 3: Login to GitHub Container Registry
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # 🏷️ Step 4: Image tagging
+      - name: Set image tag
+        id: tag
+        run: echo "TAG=sha-${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
+
+      # 🐳 Step 5: Build + Push image
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.tag.outputs.TAG }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+
+  # ─────────────────────────────────────────────
+  # 🏭 JOB 3 — DEPLOY (PRODUCTION)
+  # ─────────────────────────────────────────────
+  deploy-production:
+    needs: build
+    runs-on: ubuntu-latest
+
+    # Sirf main branch pe
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Deploy to production
+        run: |
+          echo "Deploying to production..."
+          # Same as staging but prod server pe
