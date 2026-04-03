@@ -50,8 +50,12 @@ jobs:
   build:
     needs: [test-frontend, test-backend]
     runs-on: ubuntu-latest
-
     if: github.event_name != 'pull_request'
+
+    # ✅ Permission add kiya
+    permissions:
+      contents: read
+      packages: write
 
     steps:
       - uses: actions/checkout@v4
@@ -86,7 +90,6 @@ jobs:
   deploy:
     needs: build
     runs-on: ubuntu-latest
-
     if: github.ref == 'refs/heads/main'
 
     steps:
