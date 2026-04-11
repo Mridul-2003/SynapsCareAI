@@ -1,6 +1,6 @@
 services:
   api:
-    image: mridul65888/synapscaretranscript-api:latest
+    image: mridul65888/synapscaretranscript-api:latest # (abhi same rehne de)
     container_name: transcript_api
     ports:
       - "8000:8000"
@@ -9,7 +9,7 @@ services:
     restart: unless-stopped
 
   main:
-    image: mridul65888/synapscaresoap-api:latest
+    image: ajay308/synapscare-backend:latest # 🔥 tera backend
     container_name: soap_api
     ports:
       - "8001:8001"
@@ -18,7 +18,7 @@ services:
     restart: unless-stopped
 
   frontend:
-    image: mridul65888/synaoscareai-ui:latest
+    image: ajay308/synapscare-frontend:latest # 🔥 tera frontend
     container_name: frontend
     ports:
       - "3000:3000"
